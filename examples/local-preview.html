@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embed Preview</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top left, #e7f6ff 0%, #f6faf7 55%, #ffffff 100%);
+        color: #12212f;
+      }
+
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 36px 20px 56px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.6rem, 4vw, 2.1rem);
+      }
+
+      p {
+        margin: 0 0 24px;
+        color: #3f4c5d;
+      }
+
+      .status {
+        margin-bottom: 18px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Embeddable Chatbot Preview</h1>
+      <p>This page shows how a host website embeds the chatbot with one script tag.</p>
+      <div class="status" id="health-status">Checking backend health...</div>
+      <div id="chatbot-mount"></div>
+
+      <script>
+        (async function () {
+          const statusEl = document.getElementById("health-status");
+          try {
+            const response = await fetch("http://127.0.0.1:8000/health");
+            const payload = await response.json();
+            statusEl.textContent = "Backend: " + payload.status + " | Ollama: " + payload.ollama;
+          } catch (error) {
+            statusEl.textContent = "Backend check failed. Ensure API is running on http://127.0.0.1:8000.";
+          }
+        })();
+      </script>
+
+      <script
+        src="./embed.js"
+        data-api-base-url="http://127.0.0.1:8000"
+        data-api-key="dev-local-key"
+        data-title="Local Demo Assistant"
+        data-target="#chatbot-mount"
+      ></script>
+    </main>
+  </body>
+</html>

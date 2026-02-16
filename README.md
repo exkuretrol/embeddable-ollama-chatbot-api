@@ -20,6 +20,8 @@ Architecture:
 cp .env.example .env
 ```
 
+Set `API_KEY` in `.env`, then use the same value in embed `data-api-key`.
+
 2. Install dependencies with Python 3.13:
 
 ```bash
@@ -51,7 +53,7 @@ curl -sS http://127.0.0.1:8000/health
 ## Run Tests
 
 ```bash
-uv run pytest
+uv run python -m pytest
 ```
 
 ## Chat API Test
@@ -59,7 +61,7 @@ uv run pytest
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/api/chat \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: replace-with-a-strong-key" \
+  -H "X-API-Key: <your-api-key>" \
   -d '{
     "message": "用繁體中文介紹你自己",
     "history": []
@@ -83,14 +85,27 @@ curl -sS -X POST http://127.0.0.1:8000/api/chat \
 
 Use `examples/embed-snippet.html`:
 - paste into any website HTML block/page
-- update `CONFIG.API_BASE_URL`
-- update `CONFIG.API_KEY`
+- update `data-api-base-url`
+- update `data-api-key`
+
+For local preview:
+
+```bash
+python3 -m http.server 3000 --directory examples
+```
+
+Then open `http://127.0.0.1:3000/local-preview.html`.
 
 ## Minified Embed Approach
 
 - Ship a versioned loader script such as `https://cdn.example.com/embed/v1/embed.min.js`.
 - Keep host-site integration to a single line: `<script ... data-chatbot-id="...">`.
 - Keep server secrets on backend; browser embed should use short-lived public tokens, not master API keys.
+
+Current local starter files:
+- `examples/embed.js` (loader-style widget script)
+- `examples/embed-snippet.html` (minimal integration snippet)
+- `examples/local-preview.html` (demo page)
 
 ## Production Notes
 

@@ -1,7 +1,8 @@
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import Field, model_validator, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -11,7 +12,9 @@ class Settings(BaseSettings):
     ollama_base_url: str = Field(default="http://127.0.0.1:11434", alias="OLLAMA_BASE_URL")
     ollama_model: str = Field(default="qwen2.5:3b", alias="OLLAMA_MODEL")
     api_key: str = Field(default="change-me", alias="API_KEY")
-    allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"], alias="ALLOWED_ORIGINS")
+    allowed_origins: Annotated[list[str], NoDecode] = Field(
+        default_factory=lambda: ["http://localhost:3000"], alias="ALLOWED_ORIGINS"
+    )
     request_timeout: float = Field(default=60.0, gt=0, alias="REQUEST_TIMEOUT")
     health_timeout: float = Field(default=5.0, gt=0, alias="HEALTH_TIMEOUT")
     rate_limit_per_min: int = Field(default=30, ge=1, alias="RATE_LIMIT_PER_MIN")
