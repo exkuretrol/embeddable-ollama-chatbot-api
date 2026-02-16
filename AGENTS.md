@@ -16,6 +16,26 @@ Architecture:
 - Config: `pydantic-settings`
 - LLM runtime: `Ollama`
 
+## Development Strategy (TDD)
+Use strict TDD by default for backend and embed logic changes.
+
+Workflow:
+1. Red: write or update a failing test for the target behavior.
+2. Green: implement the minimal change required to pass.
+3. Refactor: improve structure while keeping tests green.
+
+Rules:
+- Do not ship behavior changes without tests.
+- Add regression tests for every bug fix.
+- Prefer small, behavior-focused test cases.
+- Mock external services (such as Ollama HTTP calls) in unit tests.
+- Use smoke checks for real upstream verification.
+
+Definition of done:
+- Relevant tests were added or updated first.
+- `uv run python -m pytest` passes locally.
+- A manual smoke check was run for changed runtime paths.
+
 ## Agent Behavior Rules
 1. Subagent usage is allowed.
 2. Nested subagent calls are forbidden (a subagent must not invoke another subagent).
@@ -63,6 +83,8 @@ Response JSON:
 ## Commands
 - Install deps: `uv sync` (or `uv add ...` during setup)
 - Run API: `uv run uvicorn app.main:app --reload`
+- Run tests: `uv run python -m pytest`
+- Run specific tests: `uv run python -m pytest tests/test_api.py -k <keyword>`
 - Health check: `curl http://127.0.0.1:8000/health`
 - Chat test: `curl -X POST http://127.0.0.1:8000/api/chat ...`
 
@@ -98,6 +120,7 @@ Rules:
 - Use lowercase `type` and concise imperative description.
 - Keep subject line short and focused on intent.
 - Use `!` after type or scope for breaking changes, or include `BREAKING CHANGE:` in footer.
+- Prefer separate commits for test-first progression when practical.
 
 Allowed types:
 - `feat`: a new feature
