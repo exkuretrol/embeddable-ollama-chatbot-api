@@ -1,9 +1,9 @@
-## Ollama Chatbot Backend
+## Embeddable Ollama Chatbot API
 
-FastAPI backend that proxies chat requests to Ollama, plus a WordPress-ready widget snippet.
+FastAPI backend that proxies chat requests to Ollama, plus an embeddable website widget snippet.
 
 Architecture:
-- WordPress widget -> FastAPI backend -> Ollama
+- Embeddable widget -> FastAPI backend -> Ollama
 - Session-only memory (`history[]` sent by frontend)
 
 ## Requirements
@@ -74,20 +74,27 @@ curl -sS -X POST http://127.0.0.1:8000/api/chat \
 - `API_KEY`: required for `/api/chat`
 - `ALLOWED_ORIGINS`: comma-separated origins
 - `REQUEST_TIMEOUT`: Ollama upstream timeout seconds
+- `HEALTH_TIMEOUT`: Ollama health check timeout seconds
 - `RATE_LIMIT_PER_MIN`: requests per IP per minute
 - `MAX_MESSAGE_CHARS`: per-message length limit
 - `MAX_HISTORY_ITEMS`: max history items accepted
 
-## WordPress Integration
+## Embed Example
 
-Use `wordpress/widget-snippet.html`:
-- paste into WordPress Custom HTML block
+Use `examples/embed-snippet.html`:
+- paste into any website HTML block/page
 - update `CONFIG.API_BASE_URL`
 - update `CONFIG.API_KEY`
+
+## Minified Embed Approach
+
+- Ship a versioned loader script such as `https://cdn.example.com/embed/v1/embed.min.js`.
+- Keep host-site integration to a single line: `<script ... data-chatbot-id="...">`.
+- Keep server secrets on backend; browser embed should use short-lived public tokens, not master API keys.
 
 ## Production Notes
 
 - Serve API behind HTTPS reverse proxy.
-- Set strict `ALLOWED_ORIGINS` to your WordPress domain(s).
+- Set strict `ALLOWED_ORIGINS` to your embed host domain(s).
 - Keep Ollama private to the backend host/network when possible.
 - Rotate `API_KEY` regularly.

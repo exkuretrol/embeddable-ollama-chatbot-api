@@ -1,10 +1,10 @@
 # AGENTS.md
 
 ## Project
-Build a chatbot backend powered by Ollama, with a WordPress-embeddable frontend snippet.
+Build a chatbot backend powered by Ollama, with a generic embeddable frontend snippet.
 
 Architecture:
-- WordPress widget (HTML/CSS/JS) -> Python API (FastAPI) -> Ollama
+- Embeddable widget (HTML/CSS/JS) -> Python API (FastAPI) -> Ollama
 - Session-only memory (frontend sends `history[]` per request)
 - No database in v1
 
@@ -58,7 +58,7 @@ Response JSON:
 ## Local Development
 - Ollama runs locally with model pulled (e.g. `qwen2.5:3b`).
 - Backend runs via `uv`.
-- WordPress snippet points to local backend endpoint.
+- Embed snippet points to local backend endpoint.
 
 ## Commands
 - Install deps: `uv sync` (or `uv add ...` during setup)
@@ -66,11 +66,16 @@ Response JSON:
 - Health check: `curl http://127.0.0.1:8000/health`
 - Chat test: `curl -X POST http://127.0.0.1:8000/api/chat ...`
 
-## WordPress Integration Rules
-- Provide a paste-ready snippet under `wordpress/`.
-- Scope CSS to avoid conflicts with WordPress theme styles.
+## Embed Integration Rules
+- Provide a paste-ready snippet under `examples/`.
+- Scope CSS to avoid conflicts with host site styles.
 - Keep frontend framework-free in v1 (plain HTML/CSS/JS).
 - Keep memory session-only in browser runtime.
+
+## Embed Delivery Strategy
+- Prefer minified loader-based delivery for production embeds.
+- Keep integration to a single script tag when possible.
+- Never expose backend master secrets in browser code.
 
 ## Non-Goals (v1)
 - No persistent chat storage.
