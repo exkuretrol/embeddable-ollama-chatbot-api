@@ -57,7 +57,12 @@ def test_chat_requires_api_key(monkeypatch):
         return "hello"
 
     monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
-    client = build_client(monkeypatch, APP_ENV="dev", API_KEY="test-key")
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        OLLAMA_MODEL="qwen2.5:3b",
+    )
 
     response = client.post("/api/chat", json={"message": "hi", "history": []})
     assert response.status_code == 401
@@ -68,7 +73,12 @@ def test_chat_success(monkeypatch):
         return "您好"
 
     monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
-    client = build_client(monkeypatch, APP_ENV="dev", API_KEY="test-key")
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        OLLAMA_MODEL="qwen2.5:3b",
+    )
 
     response = client.post(
         "/api/chat",
