@@ -45,23 +45,26 @@
       <script>
         (async function () {
           const statusEl = document.getElementById("health-status");
+          const params = new URLSearchParams(window.location.search);
+          const apiBaseUrl = params.get("api_base_url") || "http://" + window.location.hostname + ":8000";
+
           try {
-            const response = await fetch("http://127.0.0.1:8000/health");
+            const response = await fetch(apiBaseUrl + "/health");
             const payload = await response.json();
             statusEl.textContent = "Backend: " + payload.status + " | Ollama: " + payload.ollama;
           } catch (error) {
-            statusEl.textContent = "Backend check failed. Ensure API is running on http://127.0.0.1:8000.";
+            statusEl.textContent = "Backend check failed. Ensure API is running on " + apiBaseUrl + ".";
           }
+
+          const embedScript = document.createElement("script");
+          embedScript.src = "./embed.js";
+          embedScript.dataset.apiBaseUrl = apiBaseUrl;
+          embedScript.dataset.chatbotId = "local-demo";
+          embedScript.dataset.title = "Local Demo Assistant";
+          embedScript.dataset.target = "#chatbot-mount";
+          document.body.appendChild(embedScript);
         })();
       </script>
-
-      <script
-        src="./embed.js"
-        data-api-base-url="http://127.0.0.1:8000"
-        data-chatbot-id="local-demo"
-        data-title="Local Demo Assistant"
-        data-target="#chatbot-mount"
-      ></script>
     </main>
   </body>
 </html>
