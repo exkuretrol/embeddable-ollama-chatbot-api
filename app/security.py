@@ -3,6 +3,7 @@ from collections import defaultdict, deque
 import hashlib
 import hmac
 import json
+import logging
 from time import monotonic
 from time import time
 from urllib.parse import urlparse
@@ -10,6 +11,8 @@ from urllib.parse import urlparse
 from fastapi import Depends, HTTPException, Request, status
 
 from app.config import Settings, get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
@@ -148,6 +151,14 @@ def require_chat_auth(request: Request, settings: Settings = Depends(get_setting
     manager = EmbedTokenManager(settings.embed_token_secret, settings.embed_token_ttl_seconds)
     if token and manager.verify(token, origin):
         return
+
+    logger.warning(
+        "chat_auth_failed ip=%s origin=%s has_api_key=%s has_embed_token=%s",
+        get_client_ip(request),
+        origin,
+        bool(provided),
+        bool(token),
+    )
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

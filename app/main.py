@@ -1,3 +1,4 @@
+import logging
 from time import perf_counter
 
 import httpx
@@ -15,6 +16,8 @@ from app.security import (
     origin_allowed,
     require_chat_auth,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -68,12 +71,14 @@ def create_app() -> FastAPI:
     ) -> EmbedTokenResponse:
         origin = get_request_origin(request)
         if not origin_allowed(origin, runtime_settings):
+            logger.warning("embed_token_denied origin=%s chatbot_id=%s", origin, payload.chatbot_id)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Origin is not allowed for embed token issuance",
             )
 
         token, ttl = token_manager.issue(chatbot_id=payload.chatbot_id, origin=origin)
+        logger.info("embed_token_issued origin=%s chatbot_id=%s ttl=%s", origin, payload.chatbot_id, ttl)
         return EmbedTokenResponse(token=token, expires_in=ttl)
 
     @app.post(
@@ -125,16 +130,23 @@ def create_app() -> FastAPI:
         try:
             reply = await ollama.chat(messages=messages)
         except httpx.TimeoutException as exc:
+            logger.warning("chat_upstream_timeout origin=%s", get_request_origin(request))
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail="Ollama request timed out",
             ) from exc
         except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "chat_upstream_http_error status=%s origin=%s",
+                exc.response.status_code,
+                get_request_origin(request),
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Ollama returned HTTP {exc.response.status_code}",
             ) from exc
         except Exception as exc:
+            logger.exception("chat_unexpected_error origin=%s", get_request_origin(request))
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Unexpected Ollama error: {type(exc).__name__}",
