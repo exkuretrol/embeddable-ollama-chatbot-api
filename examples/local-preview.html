@@ -47,6 +47,7 @@
           const statusEl = document.getElementById("health-status");
           const params = new URLSearchParams(window.location.search);
           const apiBaseUrl = params.get("api_base_url") || "http://" + window.location.hostname + ":8000";
+          const locale = params.get("locale") || "";
 
           try {
             const response = await fetch(apiBaseUrl + "/health");
@@ -62,6 +63,9 @@
           embedScript.dataset.chatbotId = "local-demo";
           embedScript.dataset.title = "Local Demo Assistant";
           embedScript.dataset.target = "#chatbot-mount";
+          if (locale) {
+            embedScript.dataset.locale = locale;
+          }
           document.body.appendChild(embedScript);
         })();
       </script>

@@ -1,4 +1,23 @@
 (function () {
+  const LOCALES = {
+    en: {
+      placeholder: "Ask anything...",
+      send: "Send",
+      ready: "Chat ready.",
+      tokenError: "Failed to obtain embed token",
+      requestError: "Request failed",
+      unexpectedError: "Unexpected error",
+    },
+    "zh-TW": {
+      placeholder: "請輸入想問的內容...",
+      send: "送出",
+      ready: "聊天室已準備就緒。",
+      tokenError: "無法取得嵌入式存取權杖",
+      requestError: "請求失敗",
+      unexpectedError: "發生未預期的錯誤",
+    },
+  };
+
   const script = document.currentScript;
   if (!script) {
     return;
@@ -10,7 +29,51 @@
     title: script.dataset.title || "Assistant",
     targetSelector: script.dataset.target || "",
     maxHistoryItems: Number(script.dataset.maxHistoryItems || "20"),
+    locale: script.dataset.locale || "",
   };
+
+  const normalizeLocale = function (value) {
+    if (!value) {
+      return null;
+    }
+
+    const lowered = String(value).trim().toLowerCase();
+    if (lowered === "zh-tw" || lowered.startsWith("zh-hant")) {
+      return "zh-TW";
+    }
+    if (lowered === "en" || lowered.startsWith("en-")) {
+      return "en";
+    }
+    return null;
+  };
+
+  const resolveLocale = function () {
+    const candidates = [];
+
+    if (config.locale) {
+      candidates.push(config.locale);
+    }
+    if (Array.isArray(navigator.languages)) {
+      candidates.push.apply(candidates, navigator.languages);
+    }
+    if (navigator.language) {
+      candidates.push(navigator.language);
+    }
+    if (document.documentElement && document.documentElement.lang) {
+      candidates.push(document.documentElement.lang);
+    }
+
+    for (const candidate of candidates) {
+      const normalized = normalizeLocale(candidate);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return "en";
+  };
+
+  const locale = resolveLocale();
+  const t = LOCALES[locale] || LOCALES.en;
 
   const styleId = "ocb-embed-style";
   if (!document.getElementById(styleId)) {
@@ -48,8 +111,8 @@
     + '    <div class="ocb-chat-header"></div>'
     + '    <div class="ocb-chat-log"></div>'
     + '    <form class="ocb-chat-form">'
-    + '      <textarea rows="2" placeholder="Ask anything..." required></textarea>'
-    + '      <button type="submit">Send</button>'
+    + `      <textarea rows="2" placeholder="${t.placeholder}" required></textarea>`
+    + `      <button type="submit">${t.send}</button>`
     + '    </form>'
     + '  </div>'
     + '</div>';
@@ -106,7 +169,7 @@
     });
     const payload = await response.json();
     if (!response.ok) {
-      throw new Error(payload.detail || "Failed to obtain embed token");
+        throw new Error(payload.detail || t.tokenError);
     }
 
     tokenState.value = payload.token;
@@ -114,7 +177,7 @@
     return tokenState.value;
   };
 
-  addNote("Chat ready.");
+  addNote(t.ready);
 
   formEl.addEventListener("submit", async function (event) {
     event.preventDefault();
@@ -144,14 +207,14 @@
       });
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.detail || "Request failed");
+        throw new Error(payload.detail || t.requestError);
       }
 
       addBubble("assistant", payload.reply);
       history.push({ role: "assistant", content: payload.reply });
       trimHistory();
     } catch (error) {
-      const messageText = error && error.message ? error.message : "Unexpected error";
+      const messageText = error && error.message ? error.message : t.unexpectedError;
       addNote(messageText);
     } finally {
       sendEl.disabled = false;
