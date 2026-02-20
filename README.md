@@ -111,7 +111,9 @@ Use `examples/embed-snippet.html`:
 - paste into any website HTML block/page
 - update `data-api-base-url`
 - update `data-chatbot-id`
-- optional: set `data-locale` (supports `en` and `zh-TW`; `zh-Hant*` auto-maps to `zh-TW`)
+- optional: set `data-locale` for fixed language
+- optional: set `data-locale-query-param` to customize URL locale key (default: `locale`)
+- locale supports `en` and `zh-TW`; `zh-Hant*` auto-maps to `zh-TW`
 
 For local preview:
 

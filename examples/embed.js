@@ -30,6 +30,7 @@
     targetSelector: script.dataset.target || "",
     maxHistoryItems: Number(script.dataset.maxHistoryItems || "20"),
     locale: script.dataset.locale || "",
+    localeQueryParam: script.dataset.localeQueryParam || "locale",
   };
 
   const normalizeLocale = function (value) {
@@ -52,6 +53,12 @@
 
     if (config.locale) {
       candidates.push(config.locale);
+    }
+    if (config.localeQueryParam) {
+      const queryValue = new URLSearchParams(window.location.search).get(config.localeQueryParam);
+      if (queryValue) {
+        candidates.push(queryValue);
+      }
     }
     if (Array.isArray(navigator.languages)) {
       candidates.push.apply(candidates, navigator.languages);
@@ -169,7 +176,7 @@
     });
     const payload = await response.json();
     if (!response.ok) {
-        throw new Error(payload.detail || t.tokenError);
+      throw new Error(payload.detail || t.tokenError);
     }
 
     tokenState.value = payload.token;
