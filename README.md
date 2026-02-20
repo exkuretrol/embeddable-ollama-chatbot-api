@@ -109,10 +109,16 @@ curl -sS -X POST http://127.0.0.1:8000/api/embed/token \
 
 Use `examples/embed-snippet.html`:
 - paste into any website HTML block/page
+- ensure host page uses UTF-8 (`<meta charset="UTF-8">`) when using non-ASCII text/icon config
 - update `data-api-base-url`
 - update `data-chatbot-id`
+- floating launcher opens chat window by default; users can minimize it
+- desktop supports drag-to-move (mobile drag is disabled)
 - optional: set `data-locale` for fixed language
 - optional: set `data-locale-query-param` to customize URL locale key (default: `locale`)
+- optional: set `data-start-open` (`true` or `false`)
+- optional: set `data-draggable` (`true` or `false`)
+- optional: set `data-launcher-icon` with text/emoji or image URL
 - locale supports `en` and `zh-TW`; `zh-Hant*` auto-maps to `zh-TW`
 
 For local preview:

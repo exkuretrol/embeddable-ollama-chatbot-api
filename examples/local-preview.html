@@ -49,6 +49,9 @@
           const apiBaseUrl = params.get("api_base_url") || "http://" + window.location.hostname + ":8000";
           const locale = params.get("locale") || "";
           const localeParam = params.get("locale_param") || "locale";
+          const launcherIcon = params.get("launcher_icon") || "";
+          const startOpen = params.get("start_open") || "";
+          const draggable = params.get("draggable") || "";
 
           try {
             const response = await fetch(apiBaseUrl + "/health");
@@ -65,6 +68,15 @@
           embedScript.dataset.title = "Local Demo Assistant";
           embedScript.dataset.target = "#chatbot-mount";
           embedScript.dataset.localeQueryParam = localeParam;
+          if (launcherIcon) {
+            embedScript.dataset.launcherIcon = launcherIcon;
+          }
+          if (startOpen) {
+            embedScript.dataset.startOpen = startOpen;
+          }
+          if (draggable) {
+            embedScript.dataset.draggable = draggable;
+          }
           if (locale) {
             embedScript.dataset.locale = locale;
           }
