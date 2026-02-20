@@ -24,3 +24,13 @@ class ChatResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class EmbedTokenRequest(BaseModel):
+    chatbot_id: str = Field(min_length=1, max_length=100)
+
+
+class EmbedTokenResponse(BaseModel):
+    token: str
+    token_type: str = "Bearer"
+    expires_in: int

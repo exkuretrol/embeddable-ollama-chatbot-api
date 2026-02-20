@@ -46,9 +46,13 @@ Definition of done:
 ### `GET /health`
 - Returns service health and Ollama connectivity status.
 
+### `POST /api/embed/token`
+- Issues a short-lived embed token for an allowed request origin.
+- Request JSON: `chatbot_id: string`
+
 ### `POST /api/chat`
 Headers:
-- `X-API-Key: <key>` (required in dev and prod)
+- `X-API-Key: <key>` or `X-Embed-Token: <token>`
 
 Request JSON:
 - `message: string`
@@ -60,6 +64,7 @@ Response JSON:
 
 ## Security Defaults
 - Enforce `X-API-Key` on `/api/chat` in all environments.
+- Allow embed token auth for browser clients (`X-Embed-Token`).
 - Restrict CORS via `ALLOWED_ORIGINS` allowlist.
 - Apply basic in-memory per-IP rate limiting.
 - Validate input sizes (message length, history length).
@@ -74,6 +79,8 @@ Response JSON:
 - `REQUEST_TIMEOUT`
 - `HEALTH_TIMEOUT`
 - `RATE_LIMIT_PER_MIN`
+- `EMBED_TOKEN_SECRET`
+- `EMBED_TOKEN_TTL_SECONDS`
 
 ## Local Development
 - Ollama runs locally with model pulled (e.g. `qwen2.5:3b`).
@@ -97,7 +104,7 @@ Response JSON:
 ## Embed Delivery Strategy
 - Prefer minified loader-based delivery for production embeds.
 - Keep integration to a single script tag when possible.
-- Never expose backend master secrets in browser code.
+- Never expose backend master secrets in browser code; use short-lived embed tokens.
 
 ## Non-Goals (v1)
 - No persistent chat storage.

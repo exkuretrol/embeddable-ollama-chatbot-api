@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     rate_limit_per_min: int = Field(default=30, ge=1, alias="RATE_LIMIT_PER_MIN")
     max_message_chars: int = Field(default=4000, ge=1, alias="MAX_MESSAGE_CHARS")
     max_history_items: int = Field(default=20, ge=1, alias="MAX_HISTORY_ITEMS")
+    embed_token_secret: str = Field(default="embed-dev-secret", alias="EMBED_TOKEN_SECRET")
+    embed_token_ttl_seconds: int = Field(default=900, ge=60, alias="EMBED_TOKEN_TTL_SECONDS")
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

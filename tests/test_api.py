@@ -127,3 +127,82 @@ def test_chat_rate_limit(monkeypatch):
 
     assert first.status_code == 200
     assert second.status_code == 429
+
+
+def test_embed_token_issued_for_allowed_origin(monkeypatch):
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        EMBED_TOKEN_SECRET="embed-secret",
+        ALLOWED_ORIGINS="http://localhost:3000",
+    )
+
+    response = client.post(
+        "/api/embed/token",
+        headers={"Origin": "http://localhost:3000"},
+        json={"chatbot_id": "demo"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["token"]
+    assert payload["expires_in"] > 0
+
+
+def test_chat_accepts_embed_token(monkeypatch):
+    async def fake_chat(self, messages):
+        return "token-auth-ok"
+
+    monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        EMBED_TOKEN_SECRET="embed-secret",
+        ALLOWED_ORIGINS="http://localhost:3000",
+    )
+
+    token_response = client.post(
+        "/api/embed/token",
+        headers={"Origin": "http://localhost:3000"},
+        json={"chatbot_id": "demo"},
+    )
+    token = token_response.json()["token"]
+
+    response = client.post(
+        "/api/chat",
+        headers={
+            "Origin": "http://localhost:3000",
+            "X-Embed-Token": token,
+        },
+        json={"message": "hello", "history": []},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reply"] == "token-auth-ok"
+
+
+def test_chat_rejects_invalid_embed_token(monkeypatch):
+    async def fake_chat(self, messages):
+        return "should-not-pass"
+
+    monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        EMBED_TOKEN_SECRET="embed-secret",
+        ALLOWED_ORIGINS="http://localhost:3000",
+    )
+
+    response = client.post(
+        "/api/chat",
+        headers={
+            "Origin": "http://localhost:3000",
+            "X-Embed-Token": "invalid.token",
+        },
+        json={"message": "hello", "history": []},
+    )
+
+    assert response.status_code == 401

@@ -6,7 +6,7 @@
 
   const config = {
     apiBaseUrl: script.dataset.apiBaseUrl || "http://127.0.0.1:8000",
-    apiKey: script.dataset.apiKey || "replace-with-your-api-key",
+    chatbotId: script.dataset.chatbotId || "default-chatbot",
     title: script.dataset.title || "Assistant",
     targetSelector: script.dataset.target || "",
     maxHistoryItems: Number(script.dataset.maxHistoryItems || "20"),
@@ -54,13 +54,16 @@
     + '  </div>'
     + '</div>';
 
-  const root = mount.querySelector(".ocb-chat-root");
   const titleEl = mount.querySelector(".ocb-chat-header");
   const logEl = mount.querySelector(".ocb-chat-log");
   const formEl = mount.querySelector(".ocb-chat-form");
   const inputEl = formEl.querySelector("textarea");
   const sendEl = formEl.querySelector("button");
   const history = [];
+  const tokenState = {
+    value: "",
+    expiresAt: 0,
+  };
 
   titleEl.textContent = config.title;
 
@@ -86,6 +89,31 @@
     }
   };
 
+  const getEmbedToken = async function () {
+    const now = Date.now();
+    if (tokenState.value && tokenState.expiresAt > now + 10000) {
+      return tokenState.value;
+    }
+
+    const response = await fetch(config.apiBaseUrl + "/api/embed/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chatbot_id: config.chatbotId,
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.detail || "Failed to obtain embed token");
+    }
+
+    tokenState.value = payload.token;
+    tokenState.expiresAt = now + payload.expires_in * 1000;
+    return tokenState.value;
+  };
+
   addNote("Chat ready.");
 
   formEl.addEventListener("submit", async function (event) {
@@ -102,11 +130,12 @@
     sendEl.disabled = true;
 
     try {
+      const embedToken = await getEmbedToken();
       const response = await fetch(config.apiBaseUrl + "/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": config.apiKey,
+          "X-Embed-Token": embedToken,
         },
         body: JSON.stringify({
           message: message,

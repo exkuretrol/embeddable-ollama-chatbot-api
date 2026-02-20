@@ -20,7 +20,7 @@ Architecture:
 cp .env.example .env
 ```
 
-Set `API_KEY` in `.env`, then use the same value in embed `data-api-key`.
+Set `API_KEY` and `EMBED_TOKEN_SECRET` in `.env`.
 
 2. Install dependencies with Python 3.13:
 
@@ -56,6 +56,19 @@ curl -sS http://127.0.0.1:8000/health
 uv run python -m pytest
 ```
 
+## Make Targets
+
+```bash
+make setup
+make backend
+make frontend
+make dev
+make test
+make health
+make token
+make chat
+```
+
 ## Chat API Test
 
 ```bash
@@ -66,6 +79,15 @@ curl -sS -X POST http://127.0.0.1:8000/api/chat \
     "message": "用繁體中文介紹你自己",
     "history": []
   }'
+```
+
+## Embed Token Test
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/embed/token \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://127.0.0.1:3000" \
+  -d '{"chatbot_id":"demo"}'
 ```
 
 ## Environment Variables
@@ -80,13 +102,15 @@ curl -sS -X POST http://127.0.0.1:8000/api/chat \
 - `RATE_LIMIT_PER_MIN`: requests per IP per minute
 - `MAX_MESSAGE_CHARS`: per-message length limit
 - `MAX_HISTORY_ITEMS`: max history items accepted
+- `EMBED_TOKEN_SECRET`: HMAC secret for browser embed tokens
+- `EMBED_TOKEN_TTL_SECONDS`: embed token lifetime in seconds
 
 ## Embed Example
 
 Use `examples/embed-snippet.html`:
 - paste into any website HTML block/page
 - update `data-api-base-url`
-- update `data-api-key`
+- update `data-chatbot-id`
 
 For local preview:
 

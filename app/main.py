@@ -6,8 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, get_settings
 from app.ollama_client import OllamaClient
-from app.schemas import ChatMessage, ChatRequest, ChatResponse, ErrorResponse
-from app.security import RateLimiter, get_client_ip, require_api_key
+from app.schemas import ChatMessage, ChatRequest, ChatResponse, EmbedTokenRequest, EmbedTokenResponse, ErrorResponse
+from app.security import (
+    EmbedTokenManager,
+    RateLimiter,
+    get_client_ip,
+    get_request_origin,
+    origin_allowed,
+    require_chat_auth,
+)
 
 
 def create_app() -> FastAPI:
@@ -19,11 +26,12 @@ def create_app() -> FastAPI:
         allow_origins=settings.allowed_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "X-API-Key"],
+        allow_headers=["Content-Type", "X-API-Key", "X-Embed-Token"],
     )
 
     limiter = RateLimiter(limit_per_minute=settings.rate_limit_per_min)
     ollama = OllamaClient(settings=settings)
+    token_manager = EmbedTokenManager(settings.embed_token_secret, settings.embed_token_ttl_seconds)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -46,6 +54,29 @@ def create_app() -> FastAPI:
             }
 
     @app.post(
+        "/api/embed/token",
+        response_model=EmbedTokenResponse,
+        responses={
+            403: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+        },
+    )
+    async def issue_embed_token(
+        payload: EmbedTokenRequest,
+        request: Request,
+        runtime_settings: Settings = Depends(get_settings),
+    ) -> EmbedTokenResponse:
+        origin = get_request_origin(request)
+        if not origin_allowed(origin, runtime_settings):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Origin is not allowed for embed token issuance",
+            )
+
+        token, ttl = token_manager.issue(chatbot_id=payload.chatbot_id, origin=origin)
+        return EmbedTokenResponse(token=token, expires_in=ttl)
+
+    @app.post(
         "/api/chat",
         response_model=ChatResponse,
         responses={
@@ -59,7 +90,7 @@ def create_app() -> FastAPI:
     async def chat(
         payload: ChatRequest,
         request: Request,
-        _: None = Depends(require_api_key),
+        _: None = Depends(require_chat_auth),
         runtime_settings: Settings = Depends(get_settings),
     ) -> ChatResponse:
         if len(payload.message) > runtime_settings.max_message_chars:
