@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embed Playground</title>
+    <style>
+      :root {
+        --bg: #f3f8fc;
+        --card: #ffffff;
+        --text: #0f2032;
+        --muted: #506477;
+        --border: #d2e0ec;
+        --accent: #0e7490;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        background: linear-gradient(150deg, #edf6fc 0%, #f7fbf7 52%, #ffffff 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 24px 16px 58px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.55rem, 3.8vw, 2.05rem);
+      }
+
+      p {
+        margin: 0 0 14px;
+        color: var(--muted);
+      }
+
+      .notice {
+        border: 1px dashed #b8cfde;
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #f9fcff;
+        margin-bottom: 14px;
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 14px;
+      }
+
+      .card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--card);
+        padding: 14px;
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      input,
+      select {
+        font: inherit;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      .arg-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .arg-list li {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        color: var(--muted);
+      }
+
+      .arg-list code {
+        color: #0a5b76;
+        font-weight: 600;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 10px 0;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #dce8f2;
+        color: #1f3348;
+      }
+
+      .copy-state,
+      .health {
+        font-size: 12px;
+        color: #355169;
+      }
+
+      pre {
+        margin: 0;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px;
+        background: #f8fbfe;
+        overflow-x: auto;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      #preview-host {
+        min-height: 10px;
+      }
+
+      @media (max-width: 940px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Embed Playground (Preview + Snippet)</h1>
+      <p>Single page to test runtime behavior and generate copy-ready snippet code.</p>
+      <div class="notice">
+        Unified preview + snippet builder page.
+        Keep host pages in UTF-8 (`&lt;meta charset="UTF-8"&gt;`) to avoid broken non-ASCII text.
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Config</h2>
+          <div class="form-grid">
+            <label>API Base URL<input id="apiBaseUrl" value="http://127.0.0.1:8000" /></label>
+            <label>Chatbot ID<input id="chatbotId" value="demo-chatbot" /></label>
+            <label>Title<input id="title" value="Support Assistant" /></label>
+            <label>Target Selector<input id="target" placeholder="optional, e.g. #chatbot-mount" /></label>
+            <label>Max History Items<input id="maxHistoryItems" type="number" min="1" value="20" /></label>
+            <label>Start Open<select id="startOpen"><option value="false" selected>false</option><option value="true">true</option></select></label>
+            <label>Draggable<select id="draggable"><option value="true" selected>true</option><option value="false">false</option></select></label>
+            <label>Locale<input id="locale" placeholder="optional, e.g. zh-TW" /></label>
+            <label>Locale Query Key<input id="localeQueryParam" value="locale" /></label>
+            <label class="full">Launcher Icon (emoji/text or URL)<input id="launcherIcon" value="💬" /></label>
+          </div>
+          <div class="actions">
+            <button id="reload-preview" type="button">Reload Preview</button>
+            <span class="health" id="health-status">Checking backend health...</span>
+          </div>
+          <div id="preview-host"></div>
+        </section>
+
+        <section class="card">
+          <h2>Arguments</h2>
+          <ul class="arg-list">
+            <li><code>data-api-base-url</code>: backend base URL used by widget requests.</li>
+            <li><code>data-chatbot-id</code>: value passed to embed token endpoint.</li>
+            <li><code>data-title</code>: chat window title.</li>
+            <li><code>data-target</code>: optional mount selector; widget auto-creates mount if missing.</li>
+            <li><code>data-max-history-items</code>: max browser-side history retained.</li>
+            <li><code>data-start-open</code>: open window immediately on load.</li>
+            <li><code>data-draggable</code>: enable desktop drag behavior.</li>
+            <li><code>data-launcher-icon</code>: emoji/text or image URL icon.</li>
+            <li><code>data-locale</code>: fixed locale (`en` or `zh-TW`).</li>
+            <li><code>data-locale-query-param</code>: query key for locale override.</li>
+          </ul>
+
+          <h2 style="margin-top: 14px">Generated Snippet</h2>
+          <div class="actions">
+            <button id="copy-btn" type="button">Copy Snippet</button>
+            <button id="reset-btn" class="secondary" type="button">Reset</button>
+            <span class="copy-state" id="copy-state"></span>
+          </div>
+          <pre><code id="code-output"></code></pre>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        const fields = {
+          apiBaseUrl: document.getElementById("apiBaseUrl"),
+          chatbotId: document.getElementById("chatbotId"),
+          title: document.getElementById("title"),
+          target: document.getElementById("target"),
+          maxHistoryItems: document.getElementById("maxHistoryItems"),
+          startOpen: document.getElementById("startOpen"),
+          draggable: document.getElementById("draggable"),
+          launcherIcon: document.getElementById("launcherIcon"),
+          locale: document.getElementById("locale"),
+          localeQueryParam: document.getElementById("localeQueryParam"),
+        };
+
+        const defaults = Object.fromEntries(
+          Object.entries(fields).map(function ([key, field]) {
+            return [key, field.value];
+          })
+        );
+
+        const bundleDefaults = {
+          apiBaseUrl: "http://127.0.0.1:8000",
+          chatbotId: "default-chatbot",
+          title: "Assistant",
+          target: "",
+          maxHistoryItems: "20",
+          startOpen: "false",
+          draggable: "true",
+          launcherIcon: "",
+          locale: "",
+          localeQueryParam: "locale",
+        };
+
+        const codeOutput = document.getElementById("code-output");
+        const copyState = document.getElementById("copy-state");
+        const copyBtn = document.getElementById("copy-btn");
+        const resetBtn = document.getElementById("reset-btn");
+        const reloadPreviewBtn = document.getElementById("reload-preview");
+        const previewHost = document.getElementById("preview-host");
+        const healthStatus = document.getElementById("health-status");
+
+        const isDefaultLauncherIcon = function (value) {
+          const trimmed = String(value || "").trim();
+          return trimmed === "" || trimmed === "💬";
+        };
+
+        const escapeAttr = function (value) {
+          return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/\"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+        };
+
+        const getConfig = function () {
+          return {
+            apiBaseUrl: fields.apiBaseUrl.value.trim(),
+            chatbotId: fields.chatbotId.value.trim(),
+            title: fields.title.value.trim(),
+            target: fields.target.value.trim(),
+            maxHistoryItems: fields.maxHistoryItems.value.trim(),
+            startOpen: fields.startOpen.value,
+            draggable: fields.draggable.value,
+            launcherIcon: fields.launcherIcon.value,
+            locale: fields.locale.value.trim(),
+            localeQueryParam: fields.localeQueryParam.value.trim(),
+          };
+        };
+
+        const buildSnippet = function (config) {
+          const lines = [
+            "<script",
+            '  src="https://cdn.example.com/embed/v1/embed.min.js"',
+          ];
+
+          if (config.apiBaseUrl !== bundleDefaults.apiBaseUrl) {
+            lines.push(`  data-api-base-url="${escapeAttr(config.apiBaseUrl)}"`);
+          }
+          if (config.chatbotId !== bundleDefaults.chatbotId) {
+            lines.push(`  data-chatbot-id="${escapeAttr(config.chatbotId)}"`);
+          }
+          if (config.title !== bundleDefaults.title) {
+            lines.push(`  data-title="${escapeAttr(config.title)}"`);
+          }
+          if (config.target !== bundleDefaults.target) {
+            lines.push(`  data-target="${escapeAttr(config.target)}"`);
+          }
+          if (config.maxHistoryItems !== bundleDefaults.maxHistoryItems) {
+            lines.push(`  data-max-history-items="${escapeAttr(config.maxHistoryItems)}"`);
+          }
+          if (config.startOpen !== bundleDefaults.startOpen) {
+            lines.push(`  data-start-open="${escapeAttr(config.startOpen)}"`);
+          }
+          if (config.draggable !== bundleDefaults.draggable) {
+            lines.push(`  data-draggable="${escapeAttr(config.draggable)}"`);
+          }
+          if (!isDefaultLauncherIcon(config.launcherIcon)) {
+            lines.push(`  data-launcher-icon="${escapeAttr(config.launcherIcon)}"`);
+          }
+          if (config.locale !== bundleDefaults.locale && config.locale) {
+            lines.push(`  data-locale="${escapeAttr(config.locale)}"`);
+          }
+          if (config.localeQueryParam !== bundleDefaults.localeQueryParam && config.localeQueryParam) {
+            lines.push(`  data-locale-query-param="${escapeAttr(config.localeQueryParam)}"`);
+          }
+
+          lines.push("></" + "script>");
+          return lines.join("\n");
+        };
+
+        const renderSnippet = function () {
+          const snippet = buildSnippet(getConfig());
+          codeOutput.textContent = snippet;
+          return snippet;
+        };
+
+        const copyText = async function (text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+          }
+          const temp = document.createElement("textarea");
+          temp.value = text;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand("copy");
+          document.body.removeChild(temp);
+        };
+
+        const updateHealth = async function (apiBaseUrl) {
+          healthStatus.textContent = "Checking backend health...";
+          try {
+            const response = await fetch(apiBaseUrl + "/health");
+            const payload = await response.json();
+            healthStatus.textContent = `Backend: ${payload.status} | Ollama: ${payload.ollama}`;
+          } catch (_error) {
+            healthStatus.textContent = "Backend check failed. Verify API Base URL.";
+          }
+        };
+
+        const renderPreview = function () {
+          const config = getConfig();
+          previewHost.innerHTML = "";
+          document.querySelectorAll(".ocb-widget").forEach(function (node) {
+            if (node.parentNode) {
+              node.parentNode.removeChild(node);
+            }
+          });
+
+          const embedScript = document.createElement("script");
+          embedScript.src = "./embed.js";
+          embedScript.dataset.apiBaseUrl = config.apiBaseUrl || bundleDefaults.apiBaseUrl;
+          embedScript.dataset.chatbotId = config.chatbotId || bundleDefaults.chatbotId;
+          embedScript.dataset.title = config.title || bundleDefaults.title;
+          embedScript.dataset.maxHistoryItems = config.maxHistoryItems || bundleDefaults.maxHistoryItems;
+          embedScript.dataset.startOpen = config.startOpen;
+          embedScript.dataset.draggable = config.draggable;
+          embedScript.dataset.localeQueryParam = config.localeQueryParam || bundleDefaults.localeQueryParam;
+
+          if (config.target) {
+            embedScript.dataset.target = config.target;
+          }
+          if (!isDefaultLauncherIcon(config.launcherIcon)) {
+            embedScript.dataset.launcherIcon = config.launcherIcon;
+          }
+          if (config.locale) {
+            embedScript.dataset.locale = config.locale;
+          }
+
+          previewHost.appendChild(embedScript);
+          updateHealth(embedScript.dataset.apiBaseUrl);
+        };
+
+        Object.values(fields).forEach(function (field) {
+          field.addEventListener("input", function () {
+            copyState.textContent = "";
+            renderSnippet();
+          });
+        });
+
+        reloadPreviewBtn.addEventListener("click", function () {
+          renderSnippet();
+          renderPreview();
+        });
+
+        copyBtn.addEventListener("click", async function () {
+          const snippet = renderSnippet();
+          try {
+            await copyText(snippet);
+            copyState.textContent = "Copied.";
+          } catch (_error) {
+            copyState.textContent = "Copy failed. Please copy manually.";
+          }
+        });
+
+        resetBtn.addEventListener("click", function () {
+          Object.keys(fields).forEach(function (key) {
+            fields[key].value = defaults[key];
+          });
+          copyState.textContent = "Reset to defaults.";
+          renderSnippet();
+        });
+
+        renderSnippet();
+        renderPreview();
+      })();
+    </script>
+  </body>
+</html>

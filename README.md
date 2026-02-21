@@ -107,11 +107,13 @@ curl -sS -X POST http://127.0.0.1:8000/api/embed/token \
 
 ## Embed Example
 
-Use `examples/embed-snippet.html`:
-- paste into any website HTML block/page
-- ensure host page uses UTF-8 (`<meta charset="UTF-8">`) when using non-ASCII text/icon config
-- update `data-api-base-url`
-- update `data-chatbot-id`
+`examples/embed-playground.html` is the combined runtime preview + snippet builder page:
+- previews real `embed.js` behavior on a host page
+- explains every `data-*` argument
+- lets you change config values and updates code immediately
+- includes copy-ready snippet generation
+
+Widget options supported by generated snippet:
 - floating launcher opens chat window by default; users can minimize it
 - desktop supports drag-to-move (mobile drag is disabled)
 - optional: set `data-locale` for fixed language
@@ -127,7 +129,7 @@ For local preview:
 python3 -m http.server 3000 --directory examples
 ```
 
-Then open `http://127.0.0.1:3000/local-preview.html`.
+Then open `http://127.0.0.1:3000/embed-playground.html`.
 
 ## Minified Embed Approach
 
@@ -137,8 +139,7 @@ Then open `http://127.0.0.1:3000/local-preview.html`.
 
 Current local starter files:
 - `examples/embed.js` (loader-style widget script)
-- `examples/embed-snippet.html` (minimal integration snippet)
-- `examples/local-preview.html` (demo page)
+- `examples/embed-playground.html` (combined preview + snippet builder)
 
 ## Production Notes
 
