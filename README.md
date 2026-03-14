@@ -110,7 +110,7 @@ curl -sS -X POST http://127.0.0.1:8000/api/embed/token \
 `examples/embed-playground.html` is the combined runtime preview + snippet builder page:
 - previews real `embed.js` behavior on a host page
 - explains every `data-*` argument
-- lets you change config values and updates code immediately
+- updates snippet code immediately; use Reload Preview to apply runtime changes
 - includes copy-ready snippet generation
 
 Widget options supported by generated snippet:
@@ -120,8 +120,12 @@ Widget options supported by generated snippet:
 - optional: set `data-locale-query-param` to customize URL locale key (default: `locale`)
 - optional: set `data-start-open` (`true` or `false`)
 - optional: set `data-draggable` (`true` or `false`)
+- optional: set `data-persist-history` (`true` or `false`, default `true`)
+- optional: set `data-history-ttl-seconds` (default `86400`)
+- optional: set `data-history-storage-key` (custom localStorage key)
 - optional: set `data-launcher-icon` with text/emoji or image URL
 - locale supports `en` and `zh-TW`; `zh-Hant*` auto-maps to `zh-TW`
+- history persistence uses browser localStorage; add a clear option in UI for shared devices
 
 For local preview:
 

@@ -191,9 +191,12 @@
             <label>Max History Items<input id="maxHistoryItems" type="number" min="1" value="20" /></label>
             <label>Start Open<select id="startOpen"><option value="false" selected>false</option><option value="true">true</option></select></label>
             <label>Draggable<select id="draggable"><option value="true" selected>true</option><option value="false">false</option></select></label>
+            <label>Persist History<select id="persistHistory"><option value="true" selected>true</option><option value="false">false</option></select></label>
+            <label>History TTL Seconds<input id="historyTtlSeconds" type="number" min="1" value="86400" /></label>
             <label>Locale<input id="locale" placeholder="optional, e.g. zh-TW" /></label>
             <label>Locale Query Key<input id="localeQueryParam" value="locale" /></label>
             <label class="full">Launcher Icon (emoji/text or URL)<input id="launcherIcon" value="💬" /></label>
+            <label class="full">History Storage Key<input id="historyStorageKey" placeholder="optional custom storage key" /></label>
           </div>
           <div class="actions">
             <button id="reload-preview" type="button">Reload Preview</button>
@@ -212,6 +215,9 @@
             <li><code>data-max-history-items</code>: max browser-side history retained.</li>
             <li><code>data-start-open</code>: open window immediately on load.</li>
             <li><code>data-draggable</code>: enable desktop drag behavior.</li>
+            <li><code>data-persist-history</code>: enable localStorage history persistence (default: true).</li>
+            <li><code>data-history-ttl-seconds</code>: expiry for stored history in seconds (default: 86400).</li>
+            <li><code>data-history-storage-key</code>: optional custom localStorage key.</li>
             <li><code>data-launcher-icon</code>: emoji/text or image URL icon.</li>
             <li><code>data-locale</code>: fixed locale (`en` or `zh-TW`).</li>
             <li><code>data-locale-query-param</code>: query key for locale override.</li>
@@ -238,9 +244,12 @@
           maxHistoryItems: document.getElementById("maxHistoryItems"),
           startOpen: document.getElementById("startOpen"),
           draggable: document.getElementById("draggable"),
+          persistHistory: document.getElementById("persistHistory"),
+          historyTtlSeconds: document.getElementById("historyTtlSeconds"),
           launcherIcon: document.getElementById("launcherIcon"),
           locale: document.getElementById("locale"),
           localeQueryParam: document.getElementById("localeQueryParam"),
+          historyStorageKey: document.getElementById("historyStorageKey"),
         };
 
         const defaults = Object.fromEntries(
@@ -257,9 +266,12 @@
           maxHistoryItems: "20",
           startOpen: "false",
           draggable: "true",
+          persistHistory: "true",
+          historyTtlSeconds: "86400",
           launcherIcon: "",
           locale: "",
           localeQueryParam: "locale",
+          historyStorageKey: "",
         };
 
         const codeOutput = document.getElementById("code-output");
@@ -292,9 +304,12 @@
             maxHistoryItems: fields.maxHistoryItems.value.trim(),
             startOpen: fields.startOpen.value,
             draggable: fields.draggable.value,
+            persistHistory: fields.persistHistory.value,
+            historyTtlSeconds: fields.historyTtlSeconds.value.trim(),
             launcherIcon: fields.launcherIcon.value,
             locale: fields.locale.value.trim(),
             localeQueryParam: fields.localeQueryParam.value.trim(),
+            historyStorageKey: fields.historyStorageKey.value.trim(),
           };
         };
 
@@ -324,6 +339,15 @@
           }
           if (config.draggable !== bundleDefaults.draggable) {
             lines.push(`  data-draggable="${escapeAttr(config.draggable)}"`);
+          }
+          if (config.persistHistory !== bundleDefaults.persistHistory) {
+            lines.push(`  data-persist-history="${escapeAttr(config.persistHistory)}"`);
+          }
+          if (config.historyTtlSeconds && config.historyTtlSeconds !== bundleDefaults.historyTtlSeconds) {
+            lines.push(`  data-history-ttl-seconds="${escapeAttr(config.historyTtlSeconds)}"`);
+          }
+          if (config.historyStorageKey) {
+            lines.push(`  data-history-storage-key="${escapeAttr(config.historyStorageKey)}"`);
           }
           if (!isDefaultLauncherIcon(config.launcherIcon)) {
             lines.push(`  data-launcher-icon="${escapeAttr(config.launcherIcon)}"`);
@@ -386,6 +410,8 @@
           embedScript.dataset.maxHistoryItems = config.maxHistoryItems || bundleDefaults.maxHistoryItems;
           embedScript.dataset.startOpen = config.startOpen;
           embedScript.dataset.draggable = config.draggable;
+          embedScript.dataset.persistHistory = config.persistHistory;
+          embedScript.dataset.historyTtlSeconds = config.historyTtlSeconds || bundleDefaults.historyTtlSeconds;
           embedScript.dataset.localeQueryParam = config.localeQueryParam || bundleDefaults.localeQueryParam;
 
           if (config.target) {
@@ -396,6 +422,9 @@
           }
           if (config.locale) {
             embedScript.dataset.locale = config.locale;
+          }
+          if (config.historyStorageKey) {
+            embedScript.dataset.historyStorageKey = config.historyStorageKey;
           }
 
           previewHost.appendChild(embedScript);

@@ -17,6 +17,8 @@
       closeChatAria: "Minimize chat",
       dialogAria: "Chat window",
       inputAria: "Chat input",
+      clearLabel: "Clear",
+      clearAria: "Clear chat history",
       defaultLauncherIcon: "💬",
       launcherImageAlt: "Chat launcher icon",
     },
@@ -37,6 +39,8 @@
       closeChatAria: "最小化聊天",
       dialogAria: "聊天視窗",
       inputAria: "聊天輸入框",
+      clearLabel: "清除",
+      clearAria: "清除聊天紀錄",
       defaultLauncherIcon: "💬",
       launcherImageAlt: "聊天啟動圖示",
     },
@@ -58,7 +62,14 @@
     startOpen: script.dataset.startOpen === "true",
     draggable: script.dataset.draggable !== "false",
     launcherIcon: script.dataset.launcherIcon || "",
+    persistHistory: script.dataset.persistHistory !== "false",
+    historyTtlSeconds: Number(script.dataset.historyTtlSeconds || "86400"),
+    historyStorageKey: script.dataset.historyStorageKey || "",
   };
+
+  if (!Number.isFinite(config.historyTtlSeconds) || config.historyTtlSeconds <= 0) {
+    config.historyTtlSeconds = 86400;
+  }
 
   const normalizeLocale = function (value) {
     if (!value) {
@@ -114,13 +125,15 @@
     style.textContent = ""
       + ".ocb-widget{position:fixed;right:20px;bottom:20px;z-index:2147483000;font-family:'IBM Plex Sans','Segoe UI',sans-serif;color:#1f2a37;}"
       + ".ocb-launcher{width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(145deg,#0e7490 0%,#0f766e 100%);color:#fff;box-shadow:0 12px 28px rgba(15,23,42,.25);cursor:pointer;display:grid;place-items:center;font-size:26px;line-height:1;padding:0;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','IBM Plex Sans','Segoe UI',sans-serif;}"
-      + ".ocb-launcher:focus-visible,.ocb-chat-form textarea:focus-visible,.ocb-chat-form button:focus-visible,.ocb-minimize:focus-visible{outline:2px solid #0e7490;outline-offset:2px;}"
+      + ".ocb-launcher:focus-visible,.ocb-chat-form textarea:focus-visible,.ocb-chat-form button:focus-visible,.ocb-clear:focus-visible,.ocb-minimize:focus-visible{outline:2px solid #0e7490;outline-offset:2px;}"
       + ".ocb-launcher img{width:100%;height:100%;border-radius:999px;object-fit:cover;display:block;}"
       + ".ocb-panel{position:fixed;right:20px;bottom:88px;width:min(94vw,380px);background:#fff;border:1px solid #d6e0ea;border-radius:14px;box-shadow:0 16px 40px rgba(15,23,42,.20);overflow:hidden;display:none;}"
       + ".ocb-widget.ocb-open .ocb-panel{display:block;}"
       + ".ocb-widget.ocb-open .ocb-launcher{display:none;}"
       + ".ocb-chat-header{padding:12px 14px;background:linear-gradient(145deg,#f4f7fb 0%,#eef6f2 100%);border-bottom:1px solid #d6e0ea;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:grab;}"
       + ".ocb-chat-title{font-weight:600;letter-spacing:.01em;font-size:14px;}"
+      + ".ocb-header-actions{display:flex;align-items:center;gap:6px;}"
+      + ".ocb-clear{border:1px solid #d5e0ea;background:#fff;color:#4a6077;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;line-height:1.2;}"
       + ".ocb-minimize{border:1px solid #c8d5e4;background:#fff;color:#38516b;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1;}"
       + ".ocb-chat-log{height:320px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:#fff;}"
       + ".ocb-bubble{padding:10px 12px;border-radius:12px;line-height:1.45;max-width:90%;white-space:pre-wrap;border:1px solid #d6e0ea;font-size:14px;}"
@@ -149,7 +162,10 @@
     + `  <section class="ocb-panel" role="dialog" aria-label="${t.dialogAria}">`
     + '    <div class="ocb-chat-header">'
     + '      <div class="ocb-chat-title"></div>'
-    + `      <button type="button" class="ocb-minimize" aria-label="${t.closeChatAria}">−</button>`
+    + '      <div class="ocb-header-actions">'
+    + `        <button type="button" class="ocb-clear" aria-label="${t.clearAria}">${t.clearLabel}</button>`
+    + `        <button type="button" class="ocb-minimize" aria-label="${t.closeChatAria}">−</button>`
+    + '      </div>'
     + '    </div>'
     + '    <div class="ocb-chat-log" aria-live="polite"></div>'
     + '    <form class="ocb-chat-form">'
@@ -164,6 +180,7 @@
   const panelEl = mount.querySelector(".ocb-panel");
   const headerEl = mount.querySelector(".ocb-chat-header");
   const titleEl = mount.querySelector(".ocb-chat-title");
+  const clearEl = mount.querySelector(".ocb-clear");
   const minimizeEl = mount.querySelector(".ocb-minimize");
   const logEl = mount.querySelector(".ocb-chat-log");
   const formEl = mount.querySelector(".ocb-chat-form");
@@ -181,6 +198,84 @@
 
   const isImageIcon = function (value) {
     return /^https?:\/\//i.test(value) || value.startsWith("/");
+  };
+
+  const historyStorageKey = function () {
+    if (config.historyStorageKey) {
+      return config.historyStorageKey;
+    }
+    return ["ocb", "history", window.location.origin, config.apiBaseUrl, config.chatbotId].join(":");
+  };
+
+  const isValidHistoryItem = function (item) {
+    return Boolean(
+      item
+      && (item.role === "user" || item.role === "assistant" || item.role === "system")
+      && typeof item.content === "string"
+    );
+  };
+
+  const readPersistedHistory = function () {
+    if (!config.persistHistory) {
+      return [];
+    }
+    try {
+      const raw = window.localStorage.getItem(historyStorageKey());
+      if (!raw) {
+        return [];
+      }
+      const payload = JSON.parse(raw);
+      if (!payload || !Array.isArray(payload.history)) {
+        return [];
+      }
+
+      const savedAt = Number(payload.saved_at || 0);
+      const ttlSeconds = Number(payload.ttl_seconds || config.historyTtlSeconds);
+      if (!savedAt || !Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+        return [];
+      }
+
+      if (Date.now() - savedAt > ttlSeconds * 1000) {
+        window.localStorage.removeItem(historyStorageKey());
+        return [];
+      }
+
+      const valid = payload.history.filter(isValidHistoryItem);
+      if (valid.length === 0) {
+        return [];
+      }
+      return valid;
+    } catch (_error) {
+      return [];
+    }
+  };
+
+  const writePersistedHistory = function () {
+    if (!config.persistHistory) {
+      return;
+    }
+    try {
+      const payload = {
+        v: 1,
+        saved_at: Date.now(),
+        ttl_seconds: config.historyTtlSeconds,
+        history: history,
+      };
+      window.localStorage.setItem(historyStorageKey(), JSON.stringify(payload));
+    } catch (_error) {
+      // Best effort persistence only.
+    }
+  };
+
+  const clearPersistedHistory = function () {
+    if (!config.persistHistory) {
+      return;
+    }
+    try {
+      window.localStorage.removeItem(historyStorageKey());
+    } catch (_error) {
+      // Ignore storage errors.
+    }
   };
 
   const applyLauncherIcon = function () {
@@ -232,6 +327,14 @@
     if (history.length > config.maxHistoryItems) {
       history.splice(0, history.length - config.maxHistoryItems);
     }
+  };
+
+  const clearChat = function () {
+    history.length = 0;
+    clearPersistedHistory();
+    hideTyping();
+    logEl.innerHTML = "";
+    addNote(t.ready);
   };
 
   const setPending = function (pending) {
@@ -364,10 +467,20 @@
   };
 
   applyLauncherIcon();
+  readPersistedHistory().forEach(function (item) {
+    history.push({ role: item.role, content: item.content });
+  });
+  trimHistory();
+  history.forEach(function (item) {
+    addBubble(item.role, item.content);
+  });
   addNote(t.ready);
   syncOpenState(false);
 
   launcherEl.addEventListener("click", openPanel);
+  clearEl.addEventListener("click", function () {
+    clearChat();
+  });
   minimizeEl.addEventListener("click", function () {
     minimizePanel(true);
   });
@@ -396,6 +509,7 @@
     addBubble("user", message);
     history.push({ role: "user", content: message });
     trimHistory();
+    writePersistedHistory();
     inputEl.value = "";
     setPending(true);
     showTyping();
@@ -437,6 +551,7 @@
       addBubble("assistant", payload.reply);
       history.push({ role: "assistant", content: payload.reply });
       trimHistory();
+      writePersistedHistory();
     } catch (error) {
       addNote(getErrorMessage(error));
     } finally {
