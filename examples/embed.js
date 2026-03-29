@@ -193,6 +193,7 @@
   const panelPosition = { x: null, y: null };
   let typingEl = null;
   let isOpen = config.startOpen;
+  let isComposing = false;
 
   titleEl.textContent = config.title;
 
@@ -492,8 +493,19 @@
     }
   });
 
+  inputEl.addEventListener("compositionstart", function () {
+    isComposing = true;
+  });
+
+  inputEl.addEventListener("compositionend", function () {
+    isComposing = false;
+  });
+
   inputEl.addEventListener("keydown", function (event) {
     if (event.key === "Enter" && !event.shiftKey) {
+      if (isComposing || event.isComposing || event.keyCode === 229) {
+        return;
+      }
       event.preventDefault();
       formEl.requestSubmit();
     }
@@ -501,6 +513,9 @@
 
   formEl.addEventListener("submit", async function (event) {
     event.preventDefault();
+    if (isComposing) {
+      return;
+    }
     const message = inputEl.value.trim();
     if (!message || sendEl.disabled) {
       return;
