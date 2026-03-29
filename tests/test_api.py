@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import sqlite3
 
 from fastapi.testclient import TestClient
 
@@ -15,6 +16,72 @@ def build_client(monkeypatch, **env: str) -> TestClient:
         monkeypatch.setenv(key, value)
     get_settings.cache_clear()
     return TestClient(create_app())
+
+
+def seed_bot_policy(db_path: str, bot_id: str, origin: str, bot_status: str = "active") -> None:
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bots (
+                bot_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS bot_allowed_origins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bot_id TEXT NOT NULL,
+                origin TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(bot_id, origin),
+                FOREIGN KEY(bot_id) REFERENCES bots(bot_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO bots (bot_id, name, status)
+            VALUES (?, ?, ?)
+            ON CONFLICT(bot_id) DO UPDATE SET
+                name=excluded.name,
+                status=excluded.status,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (bot_id, f"bot-{bot_id}", bot_status),
+        )
+        conn.execute(
+            """
+            INSERT INTO bot_allowed_origins (bot_id, origin, status)
+            VALUES (?, ?, 'active')
+            ON CONFLICT(bot_id, origin) DO UPDATE SET
+                status='active',
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (bot_id, origin),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_bot_status(db_path: str, bot_id: str, status: str) -> None:
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "UPDATE bots SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE bot_id = ?",
+            (status, bot_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def test_health_ok(monkeypatch):
@@ -157,13 +224,17 @@ def test_chat_rate_limit(monkeypatch):
     assert second.status_code == 429
 
 
-def test_embed_token_issued_for_allowed_origin(monkeypatch):
+def test_embed_token_issued_for_allowed_origin(monkeypatch, tmp_path: Path):
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
+
     client = build_client(
         monkeypatch,
         APP_ENV="dev",
         API_KEY="test-key",
         EMBED_TOKEN_SECRET="embed-secret",
         ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
     )
 
     response = client.post(
@@ -177,14 +248,17 @@ def test_embed_token_issued_for_allowed_origin(monkeypatch):
     assert payload["token"]
     assert payload["expires_in"] > 0
 
+def test_embed_token_rejected_for_disallowed_origin(monkeypatch, tmp_path: Path):
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
 
-def test_embed_token_rejected_for_disallowed_origin(monkeypatch):
     client = build_client(
         monkeypatch,
         APP_ENV="dev",
         API_KEY="test-key",
         EMBED_TOKEN_SECRET="embed-secret",
         ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
     )
 
     response = client.post(
@@ -196,9 +270,34 @@ def test_embed_token_rejected_for_disallowed_origin(monkeypatch):
     assert response.status_code == 403
 
 
-def test_chat_accepts_embed_token(monkeypatch):
+def test_embed_token_rejected_for_unknown_bot(monkeypatch, tmp_path: Path):
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
+
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        EMBED_TOKEN_SECRET="embed-secret",
+        ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
+    )
+
+    response = client.post(
+        "/api/embed/token",
+        headers={"Origin": "http://localhost:3000"},
+        json={"chatbot_id": "missing-bot"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_chat_accepts_embed_token(monkeypatch, tmp_path: Path):
     async def fake_chat(self, messages):
         return "token-auth-ok"
+
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
 
     monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
     client = build_client(
@@ -207,6 +306,7 @@ def test_chat_accepts_embed_token(monkeypatch):
         API_KEY="test-key",
         EMBED_TOKEN_SECRET="embed-secret",
         ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
     )
 
     token_response = client.post(
@@ -229,9 +329,12 @@ def test_chat_accepts_embed_token(monkeypatch):
     assert response.json()["reply"] == "token-auth-ok"
 
 
-def test_chat_rejects_invalid_embed_token(monkeypatch):
+def test_chat_rejects_invalid_embed_token(monkeypatch, tmp_path: Path):
     async def fake_chat(self, messages):
         return "should-not-pass"
+
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
 
     monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
     client = build_client(
@@ -240,6 +343,7 @@ def test_chat_rejects_invalid_embed_token(monkeypatch):
         API_KEY="test-key",
         EMBED_TOKEN_SECRET="embed-secret",
         ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
     )
 
     response = client.post(
@@ -254,11 +358,14 @@ def test_chat_rejects_invalid_embed_token(monkeypatch):
     assert response.status_code == 401
 
 
-def test_chat_rejects_expired_embed_token(monkeypatch):
+def test_chat_rejects_expired_embed_token(monkeypatch, tmp_path: Path):
     now = {"value": 1_700_000_000}
 
     def fake_time():
         return now["value"]
+
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
 
     monkeypatch.setattr("app.security.time", fake_time)
 
@@ -273,6 +380,7 @@ def test_chat_rejects_expired_embed_token(monkeypatch):
         EMBED_TOKEN_SECRET="embed-secret",
         EMBED_TOKEN_TTL_SECONDS="60",
         ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
     )
 
     token_response = client.post(
@@ -293,6 +401,44 @@ def test_chat_rejects_expired_embed_token(monkeypatch):
     )
 
     assert response.status_code == 401
+
+
+def test_chat_rejects_token_when_bot_disabled_after_issue(monkeypatch, tmp_path: Path):
+    async def fake_chat(self, messages):
+        return "should-not-pass"
+
+    db_path = str(tmp_path / "bots.sqlite3")
+    seed_bot_policy(db_path, bot_id="demo", origin="http://localhost:3000")
+
+    monkeypatch.setattr("app.ollama_client.OllamaClient.chat", fake_chat)
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        EMBED_TOKEN_SECRET="embed-secret",
+        ALLOWED_ORIGINS="http://localhost:3000",
+        BOT_REGISTRY_DB_PATH=db_path,
+    )
+
+    token_response = client.post(
+        "/api/embed/token",
+        headers={"Origin": "http://localhost:3000"},
+        json={"chatbot_id": "demo"},
+    )
+    token = token_response.json()["token"]
+
+    set_bot_status(db_path, bot_id="demo", status="disabled")
+
+    response = client.post(
+        "/api/chat",
+        headers={
+            "Origin": "http://localhost:3000",
+            "X-Embed-Token": token,
+        },
+        json={"message": "hello", "history": []},
+    )
+
+    assert response.status_code == 403
 
 
 def test_chat_openwebui_provider_returns_openwebui_model(monkeypatch):

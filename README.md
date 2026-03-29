@@ -28,6 +28,8 @@ Set `API_KEY` and `EMBED_TOKEN_SECRET` in `.env`.
 
 If `LLM_PROVIDER=openwebui`, also set `OPENWEBUI_BASE_URL`, `OPENWEBUI_API_KEY`, and `OPENWEBUI_MODEL`.
 
+Set `BOT_REGISTRY_DB_PATH` to a writable SQLite file path.
+
 2. Install dependencies with Python 3.13:
 
 ```bash
@@ -96,6 +98,21 @@ curl -sS -X POST http://127.0.0.1:8000/api/embed/token \
   -d '{"chatbot_id":"demo"}'
 ```
 
+Note: token issuance requires `chatbot_id` to exist in the bot registry and request origin to match an allowed origin for that bot.
+
+## Bot Registry (SQLite)
+
+The backend enforces exact-origin policy per `chatbot_id` using SQLite.
+
+Create a bot and allow one origin:
+
+```bash
+sqlite3 ./data/bots.sqlite3 "INSERT INTO bots (bot_id,name,status) VALUES ('bot_demo_123','Demo Bot','active');"
+sqlite3 ./data/bots.sqlite3 "INSERT INTO bot_allowed_origins (bot_id,origin,status) VALUES ('bot_demo_123','http://127.0.0.1:3000','active');"
+```
+
+Use that same `bot_id` in embed snippet `data-chatbot-id`.
+
 ## Provider Switch Examples
 
 Use Ollama:
@@ -135,6 +152,7 @@ OPENWEBUI_CHAT_PATH=/api/chat/completions
 - `MAX_HISTORY_ITEMS`: max history items accepted
 - `EMBED_TOKEN_SECRET`: HMAC secret for browser embed tokens
 - `EMBED_TOKEN_TTL_SECONDS`: embed token lifetime in seconds
+- `BOT_REGISTRY_DB_PATH`: SQLite path for bot and allowed-origin policies
 
 ## Embed Example
 

@@ -1,5 +1,6 @@
 import base64
 from collections import defaultdict, deque
+from dataclasses import dataclass
 import hashlib
 import hmac
 import json
@@ -53,37 +54,42 @@ class EmbedTokenManager:
         token = f"{payload_b64}.{signature}"
         return token, self._ttl
 
-    def verify(self, token: str, request_origin: str | None) -> bool:
+    def verify(self, token: str, request_origin: str | None) -> dict[str, str | int] | None:
         if not token or "." not in token:
-            return False
+            return None
 
         payload_b64, signature = token.split(".", maxsplit=1)
         expected_signature = self._sign(payload_b64)
         if not hmac.compare_digest(signature, expected_signature):
-            return False
+            return None
 
         try:
             payload_raw = self._b64_decode(payload_b64)
             payload = json.loads(payload_raw)
         except Exception:
-            return False
+            return None
 
         if not isinstance(payload, dict):
-            return False
+            return None
 
         exp = payload.get("exp")
         origin = payload.get("org")
-        if not isinstance(exp, int) or not isinstance(origin, str):
-            return False
+        chatbot_id = payload.get("sub")
+        if not isinstance(exp, int) or not isinstance(origin, str) or not isinstance(chatbot_id, str):
+            return None
 
         if exp < int(time()):
-            return False
+            return None
 
         normalized_origin = normalize_origin(request_origin)
         if not normalized_origin or normalize_origin(origin) != normalized_origin:
-            return False
+            return None
 
-        return True
+        return {
+            "sub": chatbot_id,
+            "org": normalize_origin(origin) or "",
+            "exp": exp,
+        }
 
     def _sign(self, payload_b64: str) -> str:
         digest = hmac.new(self._secret, payload_b64.encode("utf-8"), hashlib.sha256).digest()
@@ -141,16 +147,29 @@ def require_api_key(request: Request, settings: Settings = Depends(get_settings)
         )
 
 
-def require_chat_auth(request: Request, settings: Settings = Depends(get_settings)) -> None:
+@dataclass
+class ChatAuthContext:
+    method: str
+    chatbot_id: str | None = None
+    origin: str | None = None
+
+
+def require_chat_auth(request: Request, settings: Settings = Depends(get_settings)) -> ChatAuthContext:
     provided = request.headers.get("x-api-key")
     if provided == settings.api_key:
-        return
+        return ChatAuthContext(method="api_key")
 
     token = request.headers.get("x-embed-token")
     origin = get_request_origin(request)
     manager = EmbedTokenManager(settings.embed_token_secret, settings.embed_token_ttl_seconds)
-    if token and manager.verify(token, origin):
-        return
+    if token:
+        claims = manager.verify(token, origin)
+        if claims:
+            return ChatAuthContext(
+                method="embed_token",
+                chatbot_id=str(claims["sub"]),
+                origin=str(claims["org"]),
+            )
 
     logger.warning(
         "chat_auth_failed ip=%s origin=%s has_api_key=%s has_embed_token=%s",

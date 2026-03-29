@@ -11,3 +11,7 @@ wheels/
 
 # Local environment secrets
 .env
+
+# Local bot registry database
+data/
+*.sqlite3

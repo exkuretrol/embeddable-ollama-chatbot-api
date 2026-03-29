@@ -7,7 +7,7 @@ Architecture:
 - Embeddable widget (HTML/CSS/JS) -> Python API (FastAPI) -> Ollama
 - Upstream LLM provider is selected via `LLM_PROVIDER` (`ollama` or `openwebui`)
 - Session-only memory (frontend sends `history[]` per request)
-- No database in v1
+- SQLite bot registry enforces `chatbot_id` and exact allowed origins
 
 ## Core Stack
 - Python project manager: `uv`
@@ -67,6 +67,7 @@ Response JSON:
 - Enforce `X-API-Key` on `/api/chat` in all environments.
 - Allow embed token auth for browser clients (`X-Embed-Token`).
 - Restrict CORS via `ALLOWED_ORIGINS` allowlist.
+- Enforce bot-level exact-origin policy from SQLite before issuing embed tokens and before chat.
 - Apply basic in-memory per-IP rate limiting.
 - Validate input sizes (message length, history length).
 - Return normalized JSON errors for timeout/upstream failures.
@@ -87,6 +88,7 @@ Response JSON:
 - `RATE_LIMIT_PER_MIN`
 - `EMBED_TOKEN_SECRET`
 - `EMBED_TOKEN_TTL_SECONDS`
+- `BOT_REGISTRY_DB_PATH`
 
 ## Local Development
 - Ollama runs locally with model pulled (e.g. `qwen2.5:3b`).
@@ -113,7 +115,6 @@ Response JSON:
 - Never expose backend master secrets in browser code; use short-lived embed tokens.
 
 ## Non-Goals (v1)
-- No persistent chat storage.
 - No user auth system beyond static API key.
 - No streaming response protocol (non-streaming only).
 

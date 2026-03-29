@@ -5,10 +5,12 @@ import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.bot_registry import BotRegistryStore
 from app.config import Settings, get_settings
 from app.llm_provider import build_llm_client
 from app.schemas import ChatMessage, ChatRequest, ChatResponse, EmbedTokenRequest, EmbedTokenResponse, ErrorResponse
 from app.security import (
+    ChatAuthContext,
     EmbedTokenManager,
     RateLimiter,
     get_client_ip,
@@ -35,6 +37,8 @@ def create_app() -> FastAPI:
     limiter = RateLimiter(limit_per_minute=settings.rate_limit_per_min)
     llm_client = build_llm_client(settings=settings)
     token_manager = EmbedTokenManager(settings.embed_token_secret, settings.embed_token_ttl_seconds)
+    bot_registry = BotRegistryStore(settings.bot_registry_db_path)
+    bot_registry.init_schema()
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -79,6 +83,13 @@ def create_app() -> FastAPI:
                 detail="Origin is not allowed for embed token issuance",
             )
 
+        if not bot_registry.is_origin_allowed(payload.chatbot_id, origin):
+            logger.warning("embed_token_denied_bot_policy origin=%s chatbot_id=%s", origin, payload.chatbot_id)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="chatbot_id or origin is not allowed",
+            )
+
         token, ttl = token_manager.issue(chatbot_id=payload.chatbot_id, origin=origin)
         logger.info("embed_token_issued origin=%s chatbot_id=%s ttl=%s", origin, payload.chatbot_id, ttl)
         return EmbedTokenResponse(token=token, expires_in=ttl)
@@ -88,6 +99,7 @@ def create_app() -> FastAPI:
         response_model=ChatResponse,
         responses={
             401: {"model": ErrorResponse},
+            403: {"model": ErrorResponse},
             422: {"model": ErrorResponse},
             429: {"model": ErrorResponse},
             502: {"model": ErrorResponse},
@@ -97,9 +109,21 @@ def create_app() -> FastAPI:
     async def chat(
         payload: ChatRequest,
         request: Request,
-        _: None = Depends(require_chat_auth),
+        auth: ChatAuthContext = Depends(require_chat_auth),
         runtime_settings: Settings = Depends(get_settings),
     ) -> ChatResponse:
+        if auth.method == "embed_token":
+            if not auth.chatbot_id or not bot_registry.is_origin_allowed(auth.chatbot_id, auth.origin):
+                logger.warning(
+                    "chat_denied_bot_policy origin=%s chatbot_id=%s",
+                    auth.origin,
+                    auth.chatbot_id,
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="chatbot_id or origin is not allowed",
+                )
+
         if len(payload.message) > runtime_settings.max_message_chars:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
