@@ -10,6 +10,7 @@ from app.main import create_app
 
 
 def build_client(monkeypatch, **env: str) -> TestClient:
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     get_settings.cache_clear()
