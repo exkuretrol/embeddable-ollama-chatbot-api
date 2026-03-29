@@ -118,36 +118,40 @@
   const locale = resolveLocale();
   const t = LOCALES[locale] || LOCALES.en;
 
-  const styleId = "ocb-embed-style";
-  if (!document.getElementById(styleId)) {
-    const style = document.createElement("style");
-    style.id = styleId;
-    style.textContent = ""
-      + ".ocb-widget{position:fixed;right:20px;bottom:20px;z-index:2147483000;font-family:'IBM Plex Sans','Segoe UI',sans-serif;color:#1f2a37;}"
-      + ".ocb-launcher{width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(145deg,#0e7490 0%,#0f766e 100%);color:#fff;box-shadow:0 12px 28px rgba(15,23,42,.25);cursor:pointer;display:grid;place-items:center;font-size:26px;line-height:1;padding:0;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','IBM Plex Sans','Segoe UI',sans-serif;}"
-      + ".ocb-launcher:focus-visible,.ocb-chat-form textarea:focus-visible,.ocb-chat-form button:focus-visible,.ocb-clear:focus-visible,.ocb-minimize:focus-visible{outline:2px solid #0e7490;outline-offset:2px;}"
-      + ".ocb-launcher img{width:100%;height:100%;border-radius:999px;object-fit:cover;display:block;}"
-      + ".ocb-panel{position:fixed;right:20px;bottom:88px;width:min(94vw,380px);background:#fff;border:1px solid #d6e0ea;border-radius:14px;box-shadow:0 16px 40px rgba(15,23,42,.20);overflow:hidden;display:none;}"
-      + ".ocb-widget.ocb-open .ocb-panel{display:block;}"
-      + ".ocb-widget.ocb-open .ocb-launcher{display:none;}"
-      + ".ocb-chat-header{padding:12px 14px;background:linear-gradient(145deg,#f4f7fb 0%,#eef6f2 100%);border-bottom:1px solid #d6e0ea;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:grab;}"
-      + ".ocb-chat-title{font-weight:600;letter-spacing:.01em;font-size:14px;}"
-      + ".ocb-header-actions{display:flex;align-items:center;gap:6px;}"
-      + ".ocb-clear{border:1px solid #d5e0ea;background:#fff;color:#4a6077;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;line-height:1.2;}"
-      + ".ocb-minimize{border:1px solid #c8d5e4;background:#fff;color:#38516b;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1;}"
-      + ".ocb-chat-log{height:320px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:#fff;}"
-      + ".ocb-bubble{padding:10px 12px;border-radius:12px;line-height:1.45;max-width:90%;white-space:pre-wrap;border:1px solid #d6e0ea;font-size:14px;}"
-      + ".ocb-bubble.user{align-self:flex-end;background:#dff1ff;}"
-      + ".ocb-bubble.assistant{align-self:flex-start;background:#f2f6fb;}"
-      + ".ocb-note{color:#5f6b7a;font-size:12px;}"
-      + ".ocb-note.ocb-typing{font-style:italic;}"
-      + ".ocb-chat-form{border-top:1px solid #d6e0ea;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;background:#fff;}"
-      + ".ocb-chat-form textarea{resize:vertical;min-height:44px;max-height:140px;border:1px solid #d6e0ea;border-radius:10px;padding:10px;font:inherit;color:#1f2a37;}"
-      + ".ocb-chat-form button{border:0;border-radius:10px;background:#0e7490;color:#fff;font-weight:600;padding:0 16px;cursor:pointer;min-width:82px;}"
-      + ".ocb-chat-form button:disabled{opacity:.65;cursor:not-allowed;}"
-      + "@media (max-width:640px){.ocb-widget{right:8px;bottom:8px;}.ocb-panel{right:8px;left:8px;bottom:76px;width:auto;max-height:70vh;}.ocb-chat-log{height:260px;}.ocb-chat-header{cursor:default;}}";
-    document.head.appendChild(style);
-  }
+  const widgetCss = ""
+    + ":host,:host *,:host *::before,:host *::after{box-sizing:border-box;}"
+    + ".ocb-widget{position:fixed;right:20px;bottom:20px;z-index:2147483000;font-family:'IBM Plex Sans','Segoe UI',sans-serif;color:#1f2a37;}"
+    + ".ocb-launcher{width:58px;height:58px;border-radius:999px;border:0;background:linear-gradient(145deg,#0e7490 0%,#0f766e 100%);color:#fff;box-shadow:0 12px 28px rgba(15,23,42,.25);cursor:pointer;display:grid;place-items:center;font-size:26px;line-height:1;padding:0;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','IBM Plex Sans','Segoe UI',sans-serif;}"
+    + ".ocb-launcher:focus-visible,.ocb-chat-form textarea:focus-visible,.ocb-chat-form button:focus-visible,.ocb-clear:focus-visible,.ocb-minimize:focus-visible{outline:2px solid #0e7490;outline-offset:2px;}"
+    + ".ocb-launcher img{width:100%;height:100%;border-radius:999px;object-fit:cover;display:block;}"
+    + ".ocb-panel{position:fixed;right:20px;bottom:88px;width:min(94vw,380px);background:#fff;border:1px solid #d6e0ea;border-radius:14px;box-shadow:0 16px 40px rgba(15,23,42,.20);overflow:hidden;display:none;}"
+    + ".ocb-widget.ocb-open .ocb-panel{display:block;}"
+    + ".ocb-widget.ocb-open .ocb-launcher{display:none;}"
+    + ".ocb-chat-header{padding:12px 14px;background:linear-gradient(145deg,#f4f7fb 0%,#eef6f2 100%);border-bottom:1px solid #d6e0ea;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:grab;}"
+    + ".ocb-chat-title{font-weight:600;letter-spacing:.01em;font-size:14px;}"
+    + ".ocb-header-actions{display:flex;align-items:center;gap:6px;}"
+    + ".ocb-clear{border:1px solid #d5e0ea;background:#fff;color:#4a6077;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;line-height:1.2;}"
+    + ".ocb-minimize{border:1px solid #c8d5e4;background:#fff;color:#38516b;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:14px;line-height:1;}"
+    + ".ocb-chat-log{height:320px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:#fff;}"
+    + ".ocb-bubble{padding:10px 12px;border-radius:12px;line-height:1.45;max-width:90%;white-space:pre-wrap;border:1px solid #d6e0ea;font-size:14px;}"
+    + ".ocb-bubble.user{align-self:flex-end;background:#dff1ff;}"
+    + ".ocb-bubble.assistant{align-self:flex-start;background:#f2f6fb;}"
+    + ".ocb-bubble.assistant p{margin:0 0 10px;}"
+    + ".ocb-bubble.assistant p:last-child{margin-bottom:0;}"
+    + ".ocb-bubble.assistant ul,.ocb-bubble.assistant ol{margin:0 0 10px 20px;padding:0;}"
+    + ".ocb-bubble.assistant li{margin:2px 0;}"
+    + ".ocb-bubble.assistant pre{margin:0 0 10px;padding:10px;border-radius:8px;background:#0f172a;color:#e2e8f0;overflow:auto;white-space:pre;}"
+    + ".ocb-bubble.assistant code{font-family:'IBM Plex Mono','SFMono-Regular',Menlo,monospace;font-size:12px;background:#e6edf5;border-radius:6px;padding:1px 4px;white-space:break-spaces;}"
+    + ".ocb-bubble.assistant pre code{background:transparent;padding:0;color:inherit;white-space:pre;}"
+    + ".ocb-bubble.assistant blockquote{margin:0 0 10px;padding:6px 10px;border-left:3px solid #7ea3c2;background:#eaf2f8;color:#2f455a;}"
+    + ".ocb-bubble.assistant a{color:#0b5f7a;text-decoration:underline;word-break:break-word;}"
+    + ".ocb-note{color:#5f6b7a;font-size:12px;}"
+    + ".ocb-note.ocb-typing{font-style:italic;}"
+    + ".ocb-chat-form{border-top:1px solid #d6e0ea;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;background:#fff;}"
+    + ".ocb-chat-form textarea{resize:vertical;min-height:44px;max-height:140px;border:1px solid #d6e0ea;border-radius:10px;padding:10px;font-family:'IBM Plex Sans','Segoe UI',sans-serif;font-size:14px;color:#1f2a37;}"
+    + ".ocb-chat-form button{border:0;border-radius:10px;background:#0e7490;color:#fff;font-weight:600;font-size:13px;padding:0 16px;cursor:pointer;min-width:82px;}"
+    + ".ocb-chat-form button:disabled{opacity:.65;cursor:not-allowed;}"
+    + "@media (max-width:640px){.ocb-widget{right:8px;bottom:8px;}.ocb-panel{right:8px;left:8px;bottom:76px;width:auto;max-height:70vh;}.ocb-chat-log{height:260px;}.ocb-chat-form textarea{font-size:16px;}.ocb-chat-header{cursor:default;}}";
 
   const target = config.targetSelector ? document.querySelector(config.targetSelector) : null;
   const mount = target || document.createElement("div");
@@ -156,7 +160,10 @@
     script.parentNode.insertBefore(mount, script.nextSibling);
   }
 
-  mount.innerHTML = ""
+  const shadow = mount.shadowRoot || mount.attachShadow({ mode: "open" });
+
+  shadow.innerHTML = ""
+    + `<style>${widgetCss}</style>`
     + '<div class="ocb-widget">'
     + `  <button type="button" class="ocb-launcher" aria-label="${t.openChatAria}" aria-expanded="false"></button>`
     + `  <section class="ocb-panel" role="dialog" aria-label="${t.dialogAria}">`
@@ -175,15 +182,15 @@
     + '  </section>'
     + '</div>';
 
-  const rootEl = mount.querySelector(".ocb-widget");
-  const launcherEl = mount.querySelector(".ocb-launcher");
-  const panelEl = mount.querySelector(".ocb-panel");
-  const headerEl = mount.querySelector(".ocb-chat-header");
-  const titleEl = mount.querySelector(".ocb-chat-title");
-  const clearEl = mount.querySelector(".ocb-clear");
-  const minimizeEl = mount.querySelector(".ocb-minimize");
-  const logEl = mount.querySelector(".ocb-chat-log");
-  const formEl = mount.querySelector(".ocb-chat-form");
+  const rootEl = shadow.querySelector(".ocb-widget");
+  const launcherEl = shadow.querySelector(".ocb-launcher");
+  const panelEl = shadow.querySelector(".ocb-panel");
+  const headerEl = shadow.querySelector(".ocb-chat-header");
+  const titleEl = shadow.querySelector(".ocb-chat-title");
+  const clearEl = shadow.querySelector(".ocb-clear");
+  const minimizeEl = shadow.querySelector(".ocb-minimize");
+  const logEl = shadow.querySelector(".ocb-chat-log");
+  const formEl = shadow.querySelector(".ocb-chat-form");
   const inputEl = formEl.querySelector("textarea");
   const sendEl = formEl.querySelector("button");
 
@@ -191,6 +198,7 @@
   const tokenState = { value: "", expiresAt: 0 };
   const dragState = { active: false, dx: 0, dy: 0, width: 0, height: 0 };
   const panelPosition = { x: null, y: null };
+  const markdownLibState = { ready: null };
   let typingEl = null;
   let isOpen = config.startOpen;
   let isComposing = false;
@@ -294,10 +302,89 @@
     launcherEl.textContent = value;
   };
 
+  const loadScript = function (src) {
+    return new Promise(function (resolve, reject) {
+      const scriptEl = document.createElement("script");
+      scriptEl.src = src;
+      scriptEl.async = true;
+      scriptEl.onload = function () {
+        resolve();
+      };
+      scriptEl.onerror = function () {
+        reject(new Error("failed to load " + src));
+      };
+      document.head.appendChild(scriptEl);
+    });
+  };
+
+  const ensureMarkdownLibraries = async function () {
+    if (window.marked && window.DOMPurify) {
+      return true;
+    }
+    if (!markdownLibState.ready) {
+      markdownLibState.ready = (async function () {
+        if (!window.marked) {
+          await loadScript("https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js");
+        }
+        if (!window.DOMPurify) {
+          await loadScript("https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js");
+        }
+      })();
+    }
+
+    try {
+      await markdownLibState.ready;
+      return Boolean(window.marked && window.DOMPurify);
+    } catch (_error) {
+      return false;
+    }
+  };
+
+  const renderMarkdownHtml = function (text) {
+    if (!window.marked || !window.DOMPurify) {
+      return null;
+    }
+
+    window.marked.setOptions({
+      gfm: true,
+      breaks: true,
+      headerIds: false,
+      mangle: false,
+    });
+
+    const rawHtml = window.marked.parse(String(text || ""));
+    return window.DOMPurify.sanitize(rawHtml, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ["style", "script", "iframe", "object", "embed", "link", "meta"],
+      FORBID_ATTR: ["onerror", "onclick", "onload", "style"],
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.-:]|$))/i,
+    });
+  };
+
   const addBubble = function (role, text) {
     const bubble = document.createElement("div");
     bubble.className = "ocb-bubble " + role;
     bubble.textContent = text;
+    logEl.appendChild(bubble);
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+
+  const addAssistantBubble = async function (text) {
+    const bubble = document.createElement("div");
+    bubble.className = "ocb-bubble assistant";
+
+    const ready = await ensureMarkdownLibraries();
+    if (ready) {
+      const safeHtml = renderMarkdownHtml(text);
+      if (safeHtml) {
+        bubble.innerHTML = safeHtml;
+      } else {
+        bubble.textContent = text;
+      }
+    } else {
+      bubble.textContent = text;
+    }
+
     logEl.appendChild(bubble);
     logEl.scrollTop = logEl.scrollHeight;
   };
@@ -472,10 +559,19 @@
     history.push({ role: item.role, content: item.content });
   });
   trimHistory();
-  history.forEach(function (item) {
-    addBubble(item.role, item.content);
-  });
-  addNote(t.ready);
+
+  const renderInitialHistory = async function () {
+    for (const item of history) {
+      if (item.role === "assistant") {
+        await addAssistantBubble(item.content);
+      } else {
+        addBubble(item.role, item.content);
+      }
+    }
+    addNote(t.ready);
+  };
+
+  renderInitialHistory();
   syncOpenState(false);
 
   launcherEl.addEventListener("click", openPanel);
@@ -563,7 +659,7 @@
         };
       }
 
-      addBubble("assistant", payload.reply);
+      await addAssistantBubble(payload.reply);
       history.push({ role: "assistant", content: payload.reply });
       trimHistory();
       writePersistedHistory();
