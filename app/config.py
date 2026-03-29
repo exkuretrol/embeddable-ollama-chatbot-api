@@ -9,8 +9,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_env: str = Field(default="dev", alias="APP_ENV")
+    llm_provider: str = Field(default="ollama", alias="LLM_PROVIDER")
     ollama_base_url: str = Field(default="http://127.0.0.1:11434", alias="OLLAMA_BASE_URL")
     ollama_model: str = Field(default="qwen2.5:3b", alias="OLLAMA_MODEL")
+    openwebui_base_url: str = Field(default="", alias="OPENWEBUI_BASE_URL")
+    openwebui_api_key: str = Field(default="", alias="OPENWEBUI_API_KEY")
+    openwebui_model: str = Field(default="", alias="OPENWEBUI_MODEL")
+    openwebui_chat_path: str = Field(default="/api/chat/completions", alias="OPENWEBUI_CHAT_PATH")
     api_key: str = Field(default="change-me", alias="API_KEY")
     allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000"], alias="ALLOWED_ORIGINS"
@@ -40,10 +45,36 @@ class Settings(BaseSettings):
             raise ValueError("APP_ENV must be 'dev' or 'prod'")
         return lowered
 
+    @field_validator("llm_provider")
+    @classmethod
+    def validate_provider(cls, value: str) -> str:
+        lowered = value.lower()
+        if lowered not in {"ollama", "openwebui"}:
+            raise ValueError("LLM_PROVIDER must be 'ollama' or 'openwebui'")
+        return lowered
+
+    @property
+    def selected_model(self) -> str:
+        if self.llm_provider == "openwebui":
+            return self.openwebui_model
+        return self.ollama_model
+
     @model_validator(mode="after")
     def validate_prod_api_key(self) -> "Settings":
         if self.app_env == "prod" and self.api_key == "change-me":
             raise ValueError("API_KEY must be changed in production")
+
+        if self.llm_provider == "openwebui":
+            missing = []
+            if not self.openwebui_base_url.strip():
+                missing.append("OPENWEBUI_BASE_URL")
+            if not self.openwebui_api_key.strip():
+                missing.append("OPENWEBUI_API_KEY")
+            if not self.openwebui_model.strip():
+                missing.append("OPENWEBUI_MODEL")
+            if missing:
+                raise ValueError(f"Missing OpenWebUI settings: {', '.join(missing)}")
+
         return self
 
 

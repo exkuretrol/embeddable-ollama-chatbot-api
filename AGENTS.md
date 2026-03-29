@@ -5,6 +5,7 @@ Build a chatbot backend powered by Ollama, with a generic embeddable frontend sn
 
 Architecture:
 - Embeddable widget (HTML/CSS/JS) -> Python API (FastAPI) -> Ollama
+- Upstream LLM provider is selected via `LLM_PROVIDER` (`ollama` or `openwebui`)
 - Session-only memory (frontend sends `history[]` per request)
 - No database in v1
 
@@ -72,8 +73,13 @@ Response JSON:
 
 ## Environment Variables
 - `APP_ENV` (`dev` or `prod`)
+- `LLM_PROVIDER` (`ollama` or `openwebui`)
 - `OLLAMA_BASE_URL` (default: `http://127.0.0.1:11434`)
 - `OLLAMA_MODEL` (dev default: `qwen2.5:3b`)
+- `OPENWEBUI_BASE_URL`
+- `OPENWEBUI_API_KEY`
+- `OPENWEBUI_MODEL`
+- `OPENWEBUI_CHAT_PATH`
 - `API_KEY`
 - `ALLOWED_ORIGINS` (comma-separated)
 - `REQUEST_TIMEOUT`

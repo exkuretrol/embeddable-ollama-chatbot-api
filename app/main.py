@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, get_settings
-from app.ollama_client import OllamaClient
+from app.llm_provider import build_llm_client
 from app.schemas import ChatMessage, ChatRequest, ChatResponse, EmbedTokenRequest, EmbedTokenResponse, ErrorResponse
 from app.security import (
     EmbedTokenManager,
@@ -33,26 +33,28 @@ def create_app() -> FastAPI:
     )
 
     limiter = RateLimiter(limit_per_minute=settings.rate_limit_per_min)
-    ollama = OllamaClient(settings=settings)
+    llm_client = build_llm_client(settings=settings)
     token_manager = EmbedTokenManager(settings.embed_token_secret, settings.embed_token_ttl_seconds)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
         try:
-            model_available = await ollama.health_check()
+            model_available = await llm_client.health_check()
             ollama_status = "ok" if model_available else "model-missing"
             service_status = "ok" if model_available else "degraded"
             return {
                 "status": service_status,
                 "ollama": ollama_status,
-                "model": settings.ollama_model,
+                "provider": settings.llm_provider,
+                "model": settings.selected_model,
                 "env": settings.app_env,
             }
         except Exception:
             return {
                 "status": "degraded",
                 "ollama": "unreachable",
-                "model": settings.ollama_model,
+                "provider": settings.llm_provider,
+                "model": settings.selected_model,
                 "env": settings.app_env,
             }
 
@@ -128,12 +130,12 @@ def create_app() -> FastAPI:
         started = perf_counter()
 
         try:
-            reply = await ollama.chat(messages=messages)
+            reply = await llm_client.chat(messages=messages)
         except httpx.TimeoutException as exc:
             logger.warning("chat_upstream_timeout origin=%s", get_request_origin(request))
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="Ollama request timed out",
+                detail=f"{runtime_settings.llm_provider} request timed out",
             ) from exc
         except httpx.HTTPStatusError as exc:
             logger.warning(
@@ -143,17 +145,17 @@ def create_app() -> FastAPI:
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Ollama returned HTTP {exc.response.status_code}",
+                detail=f"{runtime_settings.llm_provider} returned HTTP {exc.response.status_code}",
             ) from exc
         except Exception as exc:
             logger.exception("chat_unexpected_error origin=%s", get_request_origin(request))
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Unexpected Ollama error: {type(exc).__name__}",
+                detail=f"Unexpected {runtime_settings.llm_provider} error: {type(exc).__name__}",
             ) from exc
 
         latency_ms = int((perf_counter() - started) * 1000)
-        return ChatResponse(reply=reply, model=runtime_settings.ollama_model, latency_ms=latency_ms)
+        return ChatResponse(reply=reply, model=runtime_settings.selected_model, latency_ms=latency_ms)
 
     return app
 

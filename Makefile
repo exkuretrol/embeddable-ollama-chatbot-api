@@ -1,9 +1,10 @@
-.PHONY: help setup backend frontend dev test health token chat
+.PHONY: help setup backend backend-openwebui frontend dev test health token chat
 
 help:
 	@printf "\nTargets:\n"
 	@printf "  make setup    - sync dependencies\n"
 	@printf "  make backend  - start FastAPI backend (reload)\n"
+	@printf "  make backend-openwebui - start backend with OpenWebUI provider\n"
 	@printf "  make frontend - serve examples on :3000\n"
 	@printf "  make dev      - run backend + frontend together\n"
 	@printf "  make test     - run test suite\n"
@@ -16,6 +17,9 @@ setup:
 
 backend:
 	uv run uvicorn app.main:app --reload
+
+backend-openwebui:
+	LLM_PROVIDER=openwebui uv run uvicorn app.main:app --reload
 
 frontend:
 	python3 -m http.server 3000 --directory examples

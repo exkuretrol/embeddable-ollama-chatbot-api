@@ -6,6 +6,10 @@ Architecture:
 - Embeddable widget -> FastAPI backend -> Ollama
 - Session-only memory (`history[]` sent by frontend)
 
+Upstream provider is selected with `.env` `LLM_PROVIDER`:
+- `ollama` (default)
+- `openwebui`
+
 ## Requirements
 
 - Python `>=3.13,<3.15`
@@ -21,6 +25,8 @@ cp .env.example .env
 ```
 
 Set `API_KEY` and `EMBED_TOKEN_SECRET` in `.env`.
+
+If `LLM_PROVIDER=openwebui`, also set `OPENWEBUI_BASE_URL`, `OPENWEBUI_API_KEY`, and `OPENWEBUI_MODEL`.
 
 2. Install dependencies with Python 3.13:
 
@@ -90,11 +96,36 @@ curl -sS -X POST http://127.0.0.1:8000/api/embed/token \
   -d '{"chatbot_id":"demo"}'
 ```
 
+## Provider Switch Examples
+
+Use Ollama:
+
+```env
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:3b
+```
+
+Use Open WebUI:
+
+```env
+LLM_PROVIDER=openwebui
+OPENWEBUI_BASE_URL=http://127.0.0.1:3000
+OPENWEBUI_API_KEY=replace-with-openwebui-token
+OPENWEBUI_MODEL=your-custom-rag-model
+OPENWEBUI_CHAT_PATH=/api/chat/completions
+```
+
 ## Environment Variables
 
 - `APP_ENV`: `dev` or `prod`
+- `LLM_PROVIDER`: `ollama` or `openwebui`
 - `OLLAMA_BASE_URL`: e.g. `http://127.0.0.1:11434`
 - `OLLAMA_MODEL`: e.g. `qwen2.5:3b`
+- `OPENWEBUI_BASE_URL`: e.g. `http://127.0.0.1:3000`
+- `OPENWEBUI_API_KEY`: Open WebUI bearer token
+- `OPENWEBUI_MODEL`: model id/alias in Open WebUI
+- `OPENWEBUI_CHAT_PATH`: endpoint path, default `/api/chat/completions`
 - `API_KEY`: required for `/api/chat`
 - `ALLOWED_ORIGINS`: comma-separated origins
 - `REQUEST_TIMEOUT`: Ollama upstream timeout seconds

@@ -52,6 +52,23 @@ def test_health_model_missing(monkeypatch):
     assert response.json()["ollama"] == "model-missing"
 
 
+def test_health_includes_provider(monkeypatch):
+    async def fake_health(self):
+        return True
+
+    monkeypatch.setattr("app.ollama_client.OllamaClient.health_check", fake_health)
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        LLM_PROVIDER="ollama",
+    )
+
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["provider"] == "ollama"
+
+
 def test_chat_requires_api_key(monkeypatch):
     async def fake_chat(self, messages):
         return "hello"
@@ -275,3 +292,35 @@ def test_chat_rejects_expired_embed_token(monkeypatch):
     )
 
     assert response.status_code == 401
+
+
+def test_chat_openwebui_provider_returns_openwebui_model(monkeypatch):
+    async def fake_chat(self, messages):
+        return "from-openwebui"
+
+    async def fake_health(self):
+        return True
+
+    monkeypatch.setattr("app.llm_provider.OpenWebUIClient.chat", fake_chat)
+    monkeypatch.setattr("app.llm_provider.OpenWebUIClient.health_check", fake_health)
+
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        LLM_PROVIDER="openwebui",
+        OPENWEBUI_BASE_URL="http://127.0.0.1:3000",
+        OPENWEBUI_API_KEY="owui-key",
+        OPENWEBUI_MODEL="custom-rag",
+    )
+
+    response = client.post(
+        "/api/chat",
+        headers={"X-API-Key": "test-key"},
+        json={"message": "hello", "history": []},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["reply"] == "from-openwebui"
+    assert payload["model"] == "custom-rag"
