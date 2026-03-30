@@ -15,7 +15,7 @@ from app.security import (
     RateLimiter,
     get_client_ip,
     get_request_origin,
-    origin_allowed,
+    normalize_origin,
     require_chat_auth,
 )
 
@@ -26,19 +26,22 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Ollama Chatbot API", version="0.1.0")
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allowed_origins,
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Content-Type", "X-API-Key", "X-Embed-Token"],
-    )
-
     limiter = RateLimiter(limit_per_minute=settings.rate_limit_per_min)
     llm_client = build_llm_client(settings=settings)
     token_manager = EmbedTokenManager(settings.embed_token_secret, settings.embed_token_ttl_seconds)
     bot_registry = BotRegistryStore(settings.bot_registry_db_path)
     bot_registry.init_schema()
+
+    bot_origins = bot_registry.get_all_active_origins()
+    merged_origins = list({*settings.allowed_origins, *bot_origins})
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=merged_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "X-API-Key", "X-Embed-Token"],
+    )
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -73,10 +76,9 @@ def create_app() -> FastAPI:
     async def issue_embed_token(
         payload: EmbedTokenRequest,
         request: Request,
-        runtime_settings: Settings = Depends(get_settings),
     ) -> EmbedTokenResponse:
         origin = get_request_origin(request)
-        if not origin_allowed(origin, runtime_settings):
+        if not origin or origin not in {normalize_origin(o) for o in merged_origins}:
             logger.warning("embed_token_denied origin=%s chatbot_id=%s", origin, payload.chatbot_id)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -112,6 +114,7 @@ def create_app() -> FastAPI:
         auth: ChatAuthContext = Depends(require_chat_auth),
         runtime_settings: Settings = Depends(get_settings),
     ) -> ChatResponse:
+        bot_model: str | None = None
         if auth.method == "embed_token":
             if not auth.chatbot_id or not bot_registry.is_origin_allowed(auth.chatbot_id, auth.origin):
                 logger.warning(
@@ -123,6 +126,7 @@ def create_app() -> FastAPI:
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="chatbot_id or origin is not allowed",
                 )
+            bot_model = bot_registry.get_bot_model(auth.chatbot_id)
 
         if len(payload.message) > runtime_settings.max_message_chars:
             raise HTTPException(
@@ -131,10 +135,7 @@ def create_app() -> FastAPI:
             )
 
         if len(payload.history) > runtime_settings.max_history_items:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"history exceeds MAX_HISTORY_ITEMS={runtime_settings.max_history_items}",
-            )
+            payload.history = payload.history[-runtime_settings.max_history_items:]
 
         for item in payload.history:
             if len(item.content) > runtime_settings.max_message_chars:
@@ -154,7 +155,7 @@ def create_app() -> FastAPI:
         started = perf_counter()
 
         try:
-            reply = await llm_client.chat(messages=messages)
+            reply = await llm_client.chat(messages=messages, model_override=bot_model)
         except httpx.TimeoutException as exc:
             logger.warning("chat_upstream_timeout origin=%s", get_request_origin(request))
             raise HTTPException(
@@ -179,7 +180,8 @@ def create_app() -> FastAPI:
             ) from exc
 
         latency_ms = int((perf_counter() - started) * 1000)
-        return ChatResponse(reply=reply, model=runtime_settings.selected_model, latency_ms=latency_ms)
+        effective_model = bot_model or runtime_settings.selected_model
+        return ChatResponse(reply=reply, model=effective_model, latency_ms=latency_ms)
 
     return app
 

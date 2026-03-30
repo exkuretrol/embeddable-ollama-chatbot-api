@@ -32,6 +32,7 @@ class BotRegistryStore:
                     bot_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    model TEXT,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -51,6 +52,10 @@ class BotRegistryStore:
                 )
                 """
             )
+            try:
+                conn.execute("ALTER TABLE bots ADD COLUMN model TEXT")
+            except sqlite3.OperationalError:
+                pass  # column already exists
             conn.commit()
         finally:
             conn.close()
@@ -69,6 +74,37 @@ class BotRegistryStore:
             return False
         status = row[0]
         return isinstance(status, str) and status == "active"
+
+    def get_all_active_origins(self) -> list[str]:
+        conn = sqlite3.connect(self._db_path)
+        try:
+            rows = conn.execute(
+                """
+                SELECT DISTINCT o.origin
+                FROM bot_allowed_origins o
+                JOIN bots b ON b.bot_id = o.bot_id
+                WHERE o.status = 'active'
+                  AND b.status = 'active'
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+
+        return [row[0] for row in rows]
+
+    def get_bot_model(self, bot_id: str) -> str | None:
+        conn = sqlite3.connect(self._db_path)
+        try:
+            row = conn.execute(
+                "SELECT model FROM bots WHERE bot_id = ? AND status = 'active'",
+                (bot_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if not row or not row[0]:
+            return None
+        return row[0]
 
     def is_origin_allowed(self, bot_id: str, origin: str | None) -> bool:
         normalized = normalize_origin(origin)

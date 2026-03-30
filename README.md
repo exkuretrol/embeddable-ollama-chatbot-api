@@ -107,8 +107,16 @@ The backend enforces exact-origin policy per `chatbot_id` using SQLite.
 Create a bot and allow one origin:
 
 ```bash
-sqlite3 ./data/bots.sqlite3 "INSERT INTO bots (bot_id,name,status) VALUES ('bot_demo_123','Demo Bot','active');"
+sqlite3 ./data/bots.sqlite3 "INSERT INTO bots (bot_id,name,status,model) VALUES ('bot_demo_123','Demo Bot','active','qwen2.5:3b');"
 sqlite3 ./data/bots.sqlite3 "INSERT INTO bot_allowed_origins (bot_id,origin,status) VALUES ('bot_demo_123','http://127.0.0.1:3000','active');"
+```
+
+The `model` column sets the LLM model for that specific bot. When `NULL` or omitted, it falls back to the global default (`OLLAMA_MODEL` / `OPENWEBUI_MODEL` in `.env`).
+
+To update the model on an existing bot:
+
+```bash
+sqlite3 ./data/bots.sqlite3 "UPDATE bots SET model='llama3:8b' WHERE bot_id='bot_demo_123';"
 ```
 
 Use that same `bot_id` in embed snippet `data-chatbot-id`.

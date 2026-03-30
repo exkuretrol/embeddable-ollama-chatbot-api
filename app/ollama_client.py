@@ -25,11 +25,12 @@ class OllamaClient:
         }
         return self._settings.ollama_model in names
 
-    async def chat(self, messages: list[ChatMessage]) -> str:
+    async def chat(self, messages: list[ChatMessage], model_override: str | None = None) -> str:
         url = f"{self._settings.ollama_base_url.rstrip('/')}/api/chat"
         timeout = httpx.Timeout(self._settings.request_timeout)
+        model = model_override or self._settings.ollama_model
         payload = {
-            "model": self._settings.ollama_model,
+            "model": model,
             "stream": False,
             "messages": [
                 {

@@ -11,7 +11,7 @@ class LLMClient(Protocol):
     async def health_check(self) -> bool:
         ...
 
-    async def chat(self, messages: list[ChatMessage]) -> str:
+    async def chat(self, messages: list[ChatMessage], model_override: str | None = None) -> str:
         ...
 
 
@@ -68,12 +68,13 @@ class OpenWebUIClient:
 
         return self._settings.openwebui_model in model_names
 
-    async def chat(self, messages: list[ChatMessage]) -> str:
+    async def chat(self, messages: list[ChatMessage], model_override: str | None = None) -> str:
         chat_path = self._settings.openwebui_chat_path.strip()
         url = f"{self._base_url}{chat_path}"
         timeout = httpx.Timeout(self._settings.request_timeout)
+        model = model_override or self._settings.openwebui_model
         payload = {
-            "model": self._settings.openwebui_model,
+            "model": model,
             "stream": False,
             "messages": [
                 {
