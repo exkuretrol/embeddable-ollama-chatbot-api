@@ -1,4 +1,9 @@
+import csv
+import io
 import logging
+import logging.handlers
+from datetime import datetime
+from pathlib import Path
 from time import perf_counter
 
 import httpx
@@ -20,6 +25,45 @@ from app.security import (
 )
 
 logger = logging.getLogger(__name__)
+
+_CSV_FIELDS = ["timestamp", "ip", "bot_id", "model", "auth_method",
+               "message", "reply", "history_len", "latency_ms", "user_agent"]
+
+
+def _build_chat_csv_logger(csv_path: str) -> logging.Logger:
+    path = Path(csv_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    write_header = not path.exists() or path.stat().st_size == 0
+
+    handler = logging.handlers.TimedRotatingFileHandler(
+        filename=str(path),
+        when="midnight",
+        interval=1,
+        backupCount=30,
+        encoding="utf-8",
+        utc=False,
+    )
+    handler.suffix = "%Y-%m-%d"
+    handler.setFormatter(logging.Formatter("%(message)s"))
+
+    chat_logger = logging.getLogger("app.chat_csv")
+    chat_logger.setLevel(logging.INFO)
+    chat_logger.propagate = False
+    chat_logger.addHandler(handler)
+
+    if write_header:
+        buf = io.StringIO()
+        csv.writer(buf).writerow(_CSV_FIELDS)
+        chat_logger.info(buf.getvalue().rstrip())
+
+    return chat_logger
+
+
+def _csv_row(**kwargs: object) -> str:
+    buf = io.StringIO()
+    csv.writer(buf).writerow([kwargs.get(f, "") for f in _CSV_FIELDS])
+    return buf.getvalue().rstrip()
 
 
 def _get_user_agent(request: Request) -> str:
@@ -44,6 +88,8 @@ def create_app() -> FastAPI:
 
     content_max = settings.log_content_max_chars
     is_dev = settings.app_env == "dev"
+
+    chat_csv_logger = _build_chat_csv_logger(settings.chat_csv_path) if is_dev else None
 
     app = FastAPI(title="Ollama Chatbot API", version="0.1.0")
 
@@ -235,6 +281,19 @@ def create_app() -> FastAPI:
                 _truncate(reply, content_max),
                 len(payload.history),
             )
+            if chat_csv_logger:
+                chat_csv_logger.info(_csv_row(
+                    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    ip=client_ip,
+                    bot_id=bot_id,
+                    model=effective_model,
+                    auth_method=auth.method,
+                    message=payload.message,
+                    reply=reply,
+                    history_len=len(payload.history),
+                    latency_ms=latency_ms,
+                    user_agent=ua,
+                ))
 
         return ChatResponse(reply=reply, model=effective_model, latency_ms=latency_ms)
 
