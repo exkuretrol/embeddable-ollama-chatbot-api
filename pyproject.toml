@@ -11,6 +11,15 @@ dependencies = [
     "uvicorn[standard]>=0.40.0",
 ]
 
+[project.scripts]
+manage-bots = "app.cli:main"
+
+[tool.uv]
+package = true
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",

@@ -1,4 +1,4 @@
-.PHONY: help setup backend backend-openwebui frontend dev test health token chat
+.PHONY: help setup backend backend-openwebui frontend dev test health token chat manage
 
 help:
 	@printf "\nTargets:\n"
@@ -8,6 +8,7 @@ help:
 	@printf "  make frontend - serve examples on :3000\n"
 	@printf "  make dev      - run backend + frontend together\n"
 	@printf "  make test     - run test suite\n"
+	@printf "  make manage   - manage bot registry (add/update/remove/list)\n"
 	@printf "  make health   - call /health\n"
 	@printf "  make token    - request embed token\n"
 	@printf "  make chat     - send chat request with API key\n\n"
@@ -26,6 +27,9 @@ frontend:
 
 dev:
 	sh -c 'trap "kill 0" INT TERM EXIT; uv run uvicorn app.main:app --reload & python3 -m http.server 3000 --directory examples & wait'
+
+manage:
+	uv run manage-bots
 
 test:
 	uv run python -m pytest
