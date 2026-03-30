@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     embed_token_secret: str = Field(default="embed-dev-secret", alias="EMBED_TOKEN_SECRET")
     embed_token_ttl_seconds: int = Field(default=900, ge=60, alias="EMBED_TOKEN_TTL_SECONDS")
     bot_registry_db_path: str = Field(default="./data/bots.sqlite3", alias="BOT_REGISTRY_DB_PATH")
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    log_content_max_chars: int = Field(default=500, ge=0, alias="LOG_CONTENT_MAX_CHARS")
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

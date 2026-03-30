@@ -22,8 +22,29 @@ from app.security import (
 logger = logging.getLogger(__name__)
 
 
+def _get_user_agent(request: Request) -> str:
+    return request.headers.get("user-agent", "")
+
+
+def _truncate(text: str, max_chars: int) -> str:
+    if max_chars <= 0 or len(text) <= max_chars:
+        return text
+    return text[:max_chars] + "..."
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        format="%(asctime)s %(levelname)-5s %(name)s — %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,
+    )
+
+    content_max = settings.log_content_max_chars
+    is_dev = settings.app_env == "dev"
+
     app = FastAPI(title="Ollama Chatbot API", version="0.1.0")
 
     limiter = RateLimiter(limit_per_minute=settings.rate_limit_per_min)
@@ -78,22 +99,34 @@ def create_app() -> FastAPI:
         request: Request,
     ) -> EmbedTokenResponse:
         origin = get_request_origin(request)
+        ip = get_client_ip(request)
+        ua = _get_user_agent(request)
+
         if not origin or origin not in {normalize_origin(o) for o in merged_origins}:
-            logger.warning("embed_token_denied origin=%s chatbot_id=%s", origin, payload.chatbot_id)
+            logger.warning(
+                "embed_token_denied ip=%s origin=%s bot_id=%s ua=%s",
+                ip, origin, payload.chatbot_id, ua,
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Origin is not allowed for embed token issuance",
             )
 
         if not bot_registry.is_origin_allowed(payload.chatbot_id, origin):
-            logger.warning("embed_token_denied_bot_policy origin=%s chatbot_id=%s", origin, payload.chatbot_id)
+            logger.warning(
+                "embed_token_denied_bot_policy ip=%s origin=%s bot_id=%s ua=%s",
+                ip, origin, payload.chatbot_id, ua,
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="chatbot_id or origin is not allowed",
             )
 
         token, ttl = token_manager.issue(chatbot_id=payload.chatbot_id, origin=origin)
-        logger.info("embed_token_issued origin=%s chatbot_id=%s ttl=%s", origin, payload.chatbot_id, ttl)
+        logger.info(
+            "embed_token_issued ip=%s origin=%s bot_id=%s ttl=%s ua=%s",
+            ip, origin, payload.chatbot_id, ttl, ua,
+        )
         return EmbedTokenResponse(token=token, expires_in=ttl)
 
     @app.post(
@@ -114,13 +147,16 @@ def create_app() -> FastAPI:
         auth: ChatAuthContext = Depends(require_chat_auth),
         runtime_settings: Settings = Depends(get_settings),
     ) -> ChatResponse:
+        client_ip = get_client_ip(request)
+        ua = _get_user_agent(request)
+        bot_id = auth.chatbot_id or ""
+
         bot_model: str | None = None
         if auth.method == "embed_token":
             if not auth.chatbot_id or not bot_registry.is_origin_allowed(auth.chatbot_id, auth.origin):
                 logger.warning(
-                    "chat_denied_bot_policy origin=%s chatbot_id=%s",
-                    auth.origin,
-                    auth.chatbot_id,
+                    "chat_denied_bot_policy ip=%s origin=%s bot_id=%s ua=%s",
+                    client_ip, auth.origin, bot_id, ua,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -144,7 +180,6 @@ def create_app() -> FastAPI:
                     detail="a history message exceeds MAX_MESSAGE_CHARS",
                 )
 
-        client_ip = get_client_ip(request)
         if not limiter.allow(client_ip):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -157,23 +192,28 @@ def create_app() -> FastAPI:
         try:
             reply = await llm_client.chat(messages=messages, model_override=bot_model)
         except httpx.TimeoutException as exc:
-            logger.warning("chat_upstream_timeout origin=%s", get_request_origin(request))
+            logger.warning(
+                "chat_upstream_timeout ip=%s origin=%s bot_id=%s ua=%s",
+                client_ip, get_request_origin(request), bot_id, ua,
+            )
             raise HTTPException(
                 status_code=status.HTTP_504_GATEWAY_TIMEOUT,
                 detail=f"{runtime_settings.llm_provider} request timed out",
             ) from exc
         except httpx.HTTPStatusError as exc:
             logger.warning(
-                "chat_upstream_http_error status=%s origin=%s",
-                exc.response.status_code,
-                get_request_origin(request),
+                "chat_upstream_http_error status=%s ip=%s origin=%s bot_id=%s ua=%s",
+                exc.response.status_code, client_ip, get_request_origin(request), bot_id, ua,
             )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"{runtime_settings.llm_provider} returned HTTP {exc.response.status_code}",
             ) from exc
         except Exception as exc:
-            logger.exception("chat_unexpected_error origin=%s", get_request_origin(request))
+            logger.exception(
+                "chat_unexpected_error ip=%s origin=%s bot_id=%s ua=%s",
+                client_ip, get_request_origin(request), bot_id, ua,
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Unexpected {runtime_settings.llm_provider} error: {type(exc).__name__}",
@@ -181,6 +221,21 @@ def create_app() -> FastAPI:
 
         latency_ms = int((perf_counter() - started) * 1000)
         effective_model = bot_model or runtime_settings.selected_model
+
+        logger.info(
+            "chat_ok ip=%s origin=%s bot_id=%s model=%s auth=%s latency_ms=%s ua=%s",
+            client_ip, get_request_origin(request), bot_id, effective_model,
+            auth.method, latency_ms, ua,
+        )
+        if is_dev:
+            logger.debug(
+                "chat_detail ip=%s bot_id=%s message=%s reply=%s history_len=%s",
+                client_ip, bot_id,
+                _truncate(payload.message, content_max),
+                _truncate(reply, content_max),
+                len(payload.history),
+            )
+
         return ChatResponse(reply=reply, model=effective_model, latency_ms=latency_ms)
 
     return app
