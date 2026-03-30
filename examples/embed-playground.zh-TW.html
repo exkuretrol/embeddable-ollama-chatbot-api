@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-TW">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Embed Playground</title>
+    <title>嵌入元件測試場</title>
     <style>
       :root {
         --bg: #f3f8fc;
@@ -17,7 +17,7 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        font-family: "IBM Plex Sans", "Segoe UI", "Noto Sans TC", sans-serif;
         background: linear-gradient(150deg, #edf6fc 0%, #f7fbf7 52%, #ffffff 100%);
         color: var(--text);
       }
@@ -36,6 +36,21 @@
       p {
         margin: 0 0 14px;
         color: var(--muted);
+      }
+
+      .lang-switch {
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+
+      .lang-switch a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .lang-switch a:hover {
+        text-decoration: underline;
       }
 
       .notice {
@@ -173,63 +188,63 @@
   </head>
   <body>
     <main>
-      <div style="font-size:13px;color:#506477;margin-bottom:10px">
-        English | <a href="embed-playground.zh-TW.html" style="color:#0e7490;text-decoration:none">繁體中文</a>
+      <div class="lang-switch">
+        <a href="embed-playground.html">English</a> | 繁體中文
       </div>
-      <h1>Embed Playground (Preview + Snippet)</h1>
-      <p>Single page to test runtime behavior and generate copy-ready snippet code.</p>
+      <h1>嵌入元件測試場（預覽 + 程式碼片段）</h1>
+      <p>單一頁面即可測試即時行為並產生可直接貼上的嵌入程式碼。</p>
       <div class="notice">
-        Unified preview + snippet builder page.
-        Keep host pages in UTF-8 (`&lt;meta charset="UTF-8"&gt;`) to avoid broken non-ASCII text.
+        整合式預覽與程式碼片段產生器。
+        請確保主頁面使用 UTF-8 編碼（<code>&lt;meta charset="UTF-8"&gt;</code>），以避免非 ASCII 文字顯示異常。
       </div>
 
       <div class="grid">
         <section class="card">
-          <h2>Config</h2>
+          <h2>設定</h2>
           <div class="form-grid">
-            <label>API Base URL<input id="apiBaseUrl" value="http://127.0.0.1:8000" /></label>
-            <label>Chatbot ID<input id="chatbotId" value="demo-chatbot" /></label>
-            <label>Title<input id="title" value="Support Assistant" /></label>
-            <label>Target Selector<input id="target" placeholder="optional, e.g. #chatbot-mount" /></label>
-            <label>Max History Items<input id="maxHistoryItems" type="number" min="1" value="20" /></label>
-            <label>Start Open<select id="startOpen"><option value="false" selected>false</option><option value="true">true</option></select></label>
-            <label>Draggable<select id="draggable"><option value="true" selected>true</option><option value="false">false</option></select></label>
-            <label>Persist History<select id="persistHistory"><option value="true" selected>true</option><option value="false">false</option></select></label>
-            <label>History TTL Seconds<input id="historyTtlSeconds" type="number" min="1" value="86400" /></label>
-            <label>Locale<input id="locale" placeholder="optional, e.g. zh-TW" /></label>
-            <label>Locale Query Key<input id="localeQueryParam" value="locale" /></label>
-            <label class="full">Launcher Icon (emoji/text or URL)<input id="launcherIcon" value="💬" /></label>
-            <label class="full">History Storage Key<input id="historyStorageKey" placeholder="optional custom storage key" /></label>
+            <label>API 基礎網址<input id="apiBaseUrl" value="http://127.0.0.1:8000" /></label>
+            <label>聊天機器人 ID<input id="chatbotId" value="demo-chatbot" /></label>
+            <label>標題<input id="title" value="Support Assistant" /></label>
+            <label>目標選擇器<input id="target" placeholder="選填，例如 #chatbot-mount" /></label>
+            <label>最大歷史訊息數<input id="maxHistoryItems" type="number" min="1" value="20" /></label>
+            <label>預設開啟<select id="startOpen"><option value="false" selected>false</option><option value="true">true</option></select></label>
+            <label>可拖曳<select id="draggable"><option value="true" selected>true</option><option value="false">false</option></select></label>
+            <label>保留歷史紀錄<select id="persistHistory"><option value="true" selected>true</option><option value="false">false</option></select></label>
+            <label>歷史紀錄存活秒數<input id="historyTtlSeconds" type="number" min="1" value="86400" /></label>
+            <label>語系<input id="locale" placeholder="選填，例如 zh-TW" /></label>
+            <label>語系查詢參數鍵<input id="localeQueryParam" value="locale" /></label>
+            <label class="full">啟動圖示（文字/表情符號或圖片網址）<input id="launcherIcon" value="💬" /></label>
+            <label class="full">歷史紀錄儲存鍵<input id="historyStorageKey" placeholder="選填自訂儲存鍵" /></label>
           </div>
           <div class="actions">
-            <button id="reload-preview" type="button">Reload Preview</button>
-            <span class="health" id="health-status">Checking backend health...</span>
+            <button id="reload-preview" type="button">重新載入預覽</button>
+            <span class="health" id="health-status">正在檢查後端健康狀態...</span>
           </div>
           <div id="preview-host"></div>
         </section>
 
         <section class="card">
-          <h2>Arguments</h2>
+          <h2>參數說明</h2>
           <ul class="arg-list">
-            <li><code>data-api-base-url</code>: backend base URL used by widget requests.</li>
-            <li><code>data-chatbot-id</code>: value passed to embed token endpoint.</li>
-            <li><code>data-title</code>: chat window title.</li>
-            <li><code>data-target</code>: optional mount selector; widget auto-creates mount if missing.</li>
-            <li><code>data-max-history-items</code>: max browser-side history retained.</li>
-            <li><code>data-start-open</code>: open window immediately on load.</li>
-            <li><code>data-draggable</code>: enable desktop drag behavior.</li>
-            <li><code>data-persist-history</code>: enable localStorage history persistence (default: true).</li>
-            <li><code>data-history-ttl-seconds</code>: expiry for stored history in seconds (default: 86400).</li>
-            <li><code>data-history-storage-key</code>: optional custom localStorage key.</li>
-            <li><code>data-launcher-icon</code>: emoji/text or image URL icon.</li>
-            <li><code>data-locale</code>: fixed locale (`en` or `zh-TW`).</li>
-            <li><code>data-locale-query-param</code>: query key for locale override.</li>
+            <li><code>data-api-base-url</code>：元件請求使用的後端基礎網址。</li>
+            <li><code>data-chatbot-id</code>：傳送至嵌入 Token 端點的值。</li>
+            <li><code>data-title</code>：聊天視窗標題。</li>
+            <li><code>data-target</code>：選填掛載選擇器；未指定時元件會自動建立掛載點。</li>
+            <li><code>data-max-history-items</code>：瀏覽器端保留的最大歷史訊息數。</li>
+            <li><code>data-start-open</code>：載入後立即開啟聊天視窗。</li>
+            <li><code>data-draggable</code>：啟用桌面拖曳行為。</li>
+            <li><code>data-persist-history</code>：啟用 localStorage 歷史紀錄保存（預設：true）。</li>
+            <li><code>data-history-ttl-seconds</code>：儲存歷史紀錄的過期秒數（預設：86400）。</li>
+            <li><code>data-history-storage-key</code>：選填自訂 localStorage 儲存鍵。</li>
+            <li><code>data-launcher-icon</code>：表情符號／文字或圖片網址圖示。</li>
+            <li><code>data-locale</code>：固定語系（<code>en</code> 或 <code>zh-TW</code>）。</li>
+            <li><code>data-locale-query-param</code>：語系覆寫用的查詢參數鍵。</li>
           </ul>
 
-          <h2 style="margin-top: 14px">Generated Snippet</h2>
+          <h2 style="margin-top: 14px">產生的程式碼片段</h2>
           <div class="actions">
-            <button id="copy-btn" type="button">Copy Snippet</button>
-            <button id="reset-btn" class="secondary" type="button">Reset</button>
+            <button id="copy-btn" type="button">複製程式碼</button>
+            <button id="reset-btn" class="secondary" type="button">重設</button>
             <span class="copy-state" id="copy-state"></span>
           </div>
           <pre><code id="code-output"></code></pre>
@@ -287,7 +302,7 @@
 
         const isDefaultLauncherIcon = function (value) {
           const trimmed = String(value || "").trim();
-          return trimmed === "" || trimmed === "💬";
+          return trimmed === "" || trimmed === "\u{1F4AC}";
         };
 
         const escapeAttr = function (value) {
@@ -386,13 +401,13 @@
         };
 
         const updateHealth = async function (apiBaseUrl) {
-          healthStatus.textContent = "Checking backend health...";
+          healthStatus.textContent = "\u6b63\u5728\u6aa2\u67e5\u5f8c\u7aef\u5065\u5eb7\u72c0\u614b...";
           try {
             const response = await fetch(apiBaseUrl + "/health");
             const payload = await response.json();
-            healthStatus.textContent = `Backend: ${payload.status} | Ollama: ${payload.ollama}`;
+            healthStatus.textContent = `\u5f8c\u7aef\uff1a${payload.status} | Ollama\uff1a${payload.ollama}`;
           } catch (_error) {
-            healthStatus.textContent = "Backend check failed. Verify API Base URL.";
+            healthStatus.textContent = "\u5f8c\u7aef\u6aa2\u67e5\u5931\u6557\u3002\u8acb\u78ba\u8a8d API \u57fa\u790e\u7db2\u5740\u662f\u5426\u6b63\u78ba\u3002";
           }
         };
 
@@ -450,9 +465,9 @@
           const snippet = renderSnippet();
           try {
             await copyText(snippet);
-            copyState.textContent = "Copied.";
+            copyState.textContent = "\u5df2\u8907\u88fd\u3002";
           } catch (_error) {
-            copyState.textContent = "Copy failed. Please copy manually.";
+            copyState.textContent = "\u8907\u88fd\u5931\u6557\uff0c\u8acb\u624b\u52d5\u8907\u88fd\u3002";
           }
         });
 
@@ -460,7 +475,7 @@
           Object.keys(fields).forEach(function (key) {
             fields[key].value = defaults[key];
           });
-          copyState.textContent = "Reset to defaults.";
+          copyState.textContent = "\u5df2\u91cd\u8a2d\u70ba\u9810\u8a2d\u503c\u3002";
           renderSnippet();
         });
 
