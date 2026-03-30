@@ -137,6 +137,15 @@
         color: #1f3348;
       }
 
+      .req {
+        color: #dc2626;
+        font-weight: 600;
+      }
+
+      input:required:invalid {
+        border-color: #dc2626;
+      }
+
       .copy-state,
       .health {
         font-size: 12px;
@@ -187,16 +196,16 @@
         <section class="card">
           <h2>Config</h2>
           <div class="form-grid">
-            <label>API Base URL<input id="apiBaseUrl" value="http://127.0.0.1:8000" /></label>
-            <label>Chatbot ID<input id="chatbotId" value="demo-chatbot" /></label>
-            <label>Title<input id="title" value="Support Assistant" /></label>
+            <label>API Base URL <span class="req">*</span><input id="apiBaseUrl" value="http://127.0.0.1:8000" required /></label>
+            <label>Chatbot ID <span class="req">*</span><input id="chatbotId" value="demo-chatbot" required /></label>
+            <label>Title <span class="req">*</span><input id="title" value="Support Assistant" required /></label>
             <label>Target Selector<input id="target" placeholder="optional, e.g. #chatbot-mount" /></label>
             <label>Max History Items<input id="maxHistoryItems" type="number" min="1" value="20" /></label>
             <label>Start Open<select id="startOpen"><option value="false" selected>false</option><option value="true">true</option></select></label>
             <label>Draggable<select id="draggable"><option value="true" selected>true</option><option value="false">false</option></select></label>
             <label>Persist History<select id="persistHistory"><option value="true" selected>true</option><option value="false">false</option></select></label>
             <label>History TTL Seconds<input id="historyTtlSeconds" type="number" min="1" value="86400" /></label>
-            <label>Locale<input id="locale" placeholder="optional, e.g. zh-TW" /></label>
+            <label>Locale<input id="locale" value="zh-TW" /></label>
             <label>Locale Query Key<input id="localeQueryParam" value="locale" /></label>
             <label class="full">Launcher Icon (emoji/text or URL)<input id="launcherIcon" value="💬" /></label>
             <label class="full">History Storage Key<input id="historyStorageKey" placeholder="optional custom storage key" /></label>
@@ -284,6 +293,19 @@
         const reloadPreviewBtn = document.getElementById("reload-preview");
         const previewHost = document.getElementById("preview-host");
         const healthStatus = document.getElementById("health-status");
+
+        const requiredFields = [fields.apiBaseUrl, fields.chatbotId, fields.title];
+
+        const validateRequired = function () {
+          let valid = true;
+          requiredFields.forEach(function (f) {
+            if (!f.value.trim()) {
+              f.reportValidity();
+              valid = false;
+            }
+          });
+          return valid;
+        };
 
         const isDefaultLauncherIcon = function (value) {
           const trimmed = String(value || "").trim();
@@ -442,11 +464,13 @@
         });
 
         reloadPreviewBtn.addEventListener("click", function () {
+          if (!validateRequired()) return;
           renderSnippet();
           renderPreview();
         });
 
         copyBtn.addEventListener("click", async function () {
+          if (!validateRequired()) return;
           const snippet = renderSnippet();
           try {
             await copyText(snippet);

@@ -152,6 +152,15 @@
         color: #1f3348;
       }
 
+      .req {
+        color: #dc2626;
+        font-weight: 600;
+      }
+
+      input:required:invalid {
+        border-color: #dc2626;
+      }
+
       .copy-state,
       .health {
         font-size: 12px;
@@ -202,16 +211,16 @@
         <section class="card">
           <h2>設定</h2>
           <div class="form-grid">
-            <label>API 基礎網址<input id="apiBaseUrl" value="http://127.0.0.1:8000" /></label>
-            <label>聊天機器人 ID<input id="chatbotId" value="demo-chatbot" /></label>
-            <label>標題<input id="title" value="Support Assistant" /></label>
+            <label>API 基礎網址 <span class="req">*</span><input id="apiBaseUrl" value="http://127.0.0.1:8000" required /></label>
+            <label>聊天機器人 ID <span class="req">*</span><input id="chatbotId" value="demo-chatbot" required /></label>
+            <label>標題 <span class="req">*</span><input id="title" value="Support Assistant" required /></label>
             <label>目標選擇器<input id="target" placeholder="選填，例如 #chatbot-mount" /></label>
             <label>最大歷史訊息數<input id="maxHistoryItems" type="number" min="1" value="20" /></label>
             <label>預設開啟<select id="startOpen"><option value="false" selected>false</option><option value="true">true</option></select></label>
             <label>可拖曳<select id="draggable"><option value="true" selected>true</option><option value="false">false</option></select></label>
             <label>保留歷史紀錄<select id="persistHistory"><option value="true" selected>true</option><option value="false">false</option></select></label>
             <label>歷史紀錄存活秒數<input id="historyTtlSeconds" type="number" min="1" value="86400" /></label>
-            <label>語系<input id="locale" placeholder="選填，例如 zh-TW" /></label>
+            <label>語系<input id="locale" value="zh-TW" /></label>
             <label>語系查詢參數鍵<input id="localeQueryParam" value="locale" /></label>
             <label class="full">啟動圖示（文字/表情符號或圖片網址）<input id="launcherIcon" value="💬" /></label>
             <label class="full">歷史紀錄儲存鍵<input id="historyStorageKey" placeholder="選填自訂儲存鍵" /></label>
@@ -299,6 +308,19 @@
         const reloadPreviewBtn = document.getElementById("reload-preview");
         const previewHost = document.getElementById("preview-host");
         const healthStatus = document.getElementById("health-status");
+
+        const requiredFields = [fields.apiBaseUrl, fields.chatbotId, fields.title];
+
+        const validateRequired = function () {
+          let valid = true;
+          requiredFields.forEach(function (f) {
+            if (!f.value.trim()) {
+              f.reportValidity();
+              valid = false;
+            }
+          });
+          return valid;
+        };
 
         const isDefaultLauncherIcon = function (value) {
           const trimmed = String(value || "").trim();
@@ -457,11 +479,13 @@
         });
 
         reloadPreviewBtn.addEventListener("click", function () {
+          if (!validateRequired()) return;
           renderSnippet();
           renderPreview();
         });
 
         copyBtn.addEventListener("click", async function () {
+          if (!validateRequired()) return;
           const snippet = renderSnippet();
           try {
             await copyText(snippet);
