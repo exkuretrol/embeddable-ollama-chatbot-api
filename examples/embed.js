@@ -195,6 +195,8 @@
   const sendEl = formEl.querySelector("button");
 
   const history = [];
+  const inputHistory = [];
+  let inputHistoryIndex = -1;
   const tokenState = { value: "", expiresAt: 0 };
   const dragState = { active: false, dx: 0, dy: 0, width: 0, height: 0 };
   const panelPosition = { x: null, y: null };
@@ -598,6 +600,39 @@
   });
 
   inputEl.addEventListener("keydown", function (event) {
+    if (event.key === "ArrowUp" && !inputEl.value) {
+      if (!inputHistory.length) return;
+      event.preventDefault();
+      if (inputHistoryIndex === -1) {
+        inputHistoryIndex = inputHistory.length - 1;
+      } else if (inputHistoryIndex > 0) {
+        inputHistoryIndex -= 1;
+      }
+      inputEl.value = inputHistory[inputHistoryIndex];
+      inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+      return;
+    }
+    if (event.key === "ArrowDown" && inputHistoryIndex !== -1) {
+      event.preventDefault();
+      if (inputHistoryIndex < inputHistory.length - 1) {
+        inputHistoryIndex += 1;
+        inputEl.value = inputHistory[inputHistoryIndex];
+      } else {
+        inputHistoryIndex = -1;
+        inputEl.value = "";
+      }
+      inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+      return;
+    }
+    if (event.key === "Escape" && inputEl.value) {
+      event.preventDefault();
+      inputEl.value = "";
+      inputHistoryIndex = -1;
+      return;
+    }
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
+      inputHistoryIndex = -1;
+    }
     if (event.key === "Enter" && !event.shiftKey) {
       if (isComposing || event.isComposing || event.keyCode === 229) {
         return;
@@ -617,6 +652,10 @@
       return;
     }
 
+    if (inputHistory[inputHistory.length - 1] !== message) {
+      inputHistory.push(message);
+    }
+    inputHistoryIndex = -1;
     addBubble("user", message);
     history.push({ role: "user", content: message });
     trimHistory();
