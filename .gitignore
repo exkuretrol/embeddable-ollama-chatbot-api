@@ -15,3 +15,9 @@ wheels/
 # Local bot registry database
 data/
 *.sqlite3
+
+# Local tool config
+.superset/
+
+# Chat CSV logs
+logs/
