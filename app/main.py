@@ -30,8 +30,8 @@ _CSV_FIELDS = ["timestamp", "ip", "bot_id", "model", "auth_method",
                "message", "reply", "history_len", "latency_ms", "user_agent"]
 
 
-def _build_chat_csv_logger(csv_path: str) -> logging.Logger:
-    path = Path(csv_path)
+def _build_chat_csv_logger() -> logging.Logger:
+    path = Path(__file__).parent.parent / "logs" / "chat.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
 
     write_header = not path.exists() or path.stat().st_size == 0
@@ -89,7 +89,7 @@ def create_app() -> FastAPI:
     content_max = settings.log_content_max_chars
     is_dev = settings.app_env == "dev"
 
-    chat_csv_logger = _build_chat_csv_logger(settings.chat_csv_path) if is_dev else None
+    chat_csv_logger = _build_chat_csv_logger() if settings.chat_log_enabled else None
 
     app = FastAPI(title="Ollama Chatbot API", version="0.1.0")
 

@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     bot_registry_db_path: str = Field(default="./data/bots.sqlite3", alias="BOT_REGISTRY_DB_PATH")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_content_max_chars: int = Field(default=500, ge=0, alias="LOG_CONTENT_MAX_CHARS")
-    chat_csv_path: str = Field(default="./logs/chat.csv", alias="CHAT_CSV_PATH")
+    chat_log_enabled: bool = Field(default=False, alias="CHAT_LOG_ENABLED")
 
     @field_validator("allowed_origins", mode="before")
     @classmethod
