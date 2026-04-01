@@ -356,7 +356,7 @@
         const buildSnippet = function (config) {
           const lines = [
             "<script",
-            '  src="https://cdn.example.com/embed/v1/embed.min.js"',
+            `  src="${escapeAttr(config.apiBaseUrl)}/embed/v1/embed.js"`,
           ];
 
           if (config.apiBaseUrl !== bundleDefaults.apiBaseUrl) {

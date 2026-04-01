@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import io
 import logging
 import logging.handlers
@@ -7,7 +8,7 @@ from pathlib import Path
 from time import perf_counter
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.bot_registry import BotRegistryStore
@@ -296,6 +297,49 @@ def create_app() -> FastAPI:
                 ))
 
         return ChatResponse(reply=reply, model=effective_model, latency_ms=latency_ms)
+
+    _embed_js_path = Path(settings.embed_js_path)
+    if not _embed_js_path.is_absolute():
+        _embed_js_path = Path(__file__).parent.parent / _embed_js_path
+
+    # Cache content+ETag at startup in prod; re-read on every request in dev
+    _embed_js_cache: dict[str, bytes | str] = {}
+
+    def _load_embed_js() -> tuple[bytes, str]:
+        content = _embed_js_path.read_bytes()
+        etag = '"' + hashlib.sha256(content).hexdigest()[:16] + '"'
+        return content, etag
+
+    if not is_dev:
+        _content, _etag = _load_embed_js()
+        _embed_js_cache["content"] = _content
+        _embed_js_cache["etag"] = _etag
+
+    @app.get("/embed/v1/embed.js", include_in_schema=False)
+    async def serve_embed_js(request: Request) -> Response:
+        if is_dev:
+            content, etag = _load_embed_js()
+        else:
+            content = _embed_js_cache["content"]
+            etag = _embed_js_cache["etag"]
+
+        cache_control = "no-cache" if is_dev else "public, max-age=300, must-revalidate"
+
+        if request.headers.get("if-none-match") == etag:
+            return Response(
+                status_code=304,
+                headers={"ETag": etag, "Cache-Control": cache_control},
+            )
+
+        return Response(
+            content=content,
+            media_type="application/javascript; charset=utf-8",
+            headers={
+                "ETag": etag,
+                "Cache-Control": cache_control,
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     return app
 

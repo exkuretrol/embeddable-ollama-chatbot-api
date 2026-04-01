@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_content_max_chars: int = Field(default=500, ge=0, alias="LOG_CONTENT_MAX_CHARS")
     chat_log_enabled: bool = Field(default=False, alias="CHAT_LOG_ENABLED")
+    embed_js_path: str = Field(default="./examples/embed.js", alias="EMBED_JS_PATH")
 
     @field_validator("allowed_origins", mode="before")
     @classmethod

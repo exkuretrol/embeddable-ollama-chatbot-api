@@ -1,3 +1,5 @@
+import hashlib
+import re
 import sys
 from pathlib import Path
 import sqlite3
@@ -618,6 +620,105 @@ def test_chat_api_key_auth_uses_env_model(monkeypatch):
     assert response.status_code == 200
     assert response.json()["model"] == "qwen2.5:3b"
     assert captured_model["value"] is None
+
+
+def _build_embed_client(monkeypatch, tmp_path: Path, app_env: str = "dev") -> tuple[TestClient, Path]:
+    js_file = tmp_path / "embed.js"
+    js_file.write_text("/* embed v1 */")
+    client = build_client(
+        monkeypatch,
+        APP_ENV=app_env,
+        API_KEY="test-key",
+        EMBED_JS_PATH=str(js_file),
+    )
+    return client, js_file
+
+
+def test_embed_js_serves_file_with_correct_headers(monkeypatch, tmp_path: Path):
+    client, _ = _build_embed_client(monkeypatch, tmp_path)
+    response = client.get("/embed/v1/embed.js")
+    assert response.status_code == 200
+    assert response.text == "/* embed v1 */"
+    assert "application/javascript" in response.headers["content-type"]
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "etag" in response.headers
+
+
+def test_embed_js_etag_format(monkeypatch, tmp_path: Path):
+    client, _ = _build_embed_client(monkeypatch, tmp_path)
+    etag = client.get("/embed/v1/embed.js").headers["etag"]
+    assert re.fullmatch(r'"[0-9a-f]{16}"', etag)
+
+
+def test_embed_js_etag_matches_sha256(monkeypatch, tmp_path: Path):
+    client, js_file = _build_embed_client(monkeypatch, tmp_path)
+    content = js_file.read_bytes()
+    expected_etag = '"' + hashlib.sha256(content).hexdigest()[:16] + '"'
+    etag = client.get("/embed/v1/embed.js").headers["etag"]
+    assert etag == expected_etag
+
+
+def test_embed_js_304_when_etag_matches(monkeypatch, tmp_path: Path):
+    client, _ = _build_embed_client(monkeypatch, tmp_path)
+    etag = client.get("/embed/v1/embed.js").headers["etag"]
+    response = client.get("/embed/v1/embed.js", headers={"If-None-Match": etag})
+    assert response.status_code == 304
+    assert response.content == b""
+    assert response.headers["etag"] == etag
+    assert "cache-control" in response.headers
+
+
+def test_embed_js_200_when_etag_mismatches(monkeypatch, tmp_path: Path):
+    client, _ = _build_embed_client(monkeypatch, tmp_path)
+    response = client.get("/embed/v1/embed.js", headers={"If-None-Match": '"wrongetag0000000"'})
+    assert response.status_code == 200
+    assert response.text == "/* embed v1 */"
+
+
+def test_embed_js_cache_control_dev(monkeypatch, tmp_path: Path):
+    client, _ = _build_embed_client(monkeypatch, tmp_path, app_env="dev")
+    response = client.get("/embed/v1/embed.js")
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_embed_js_cache_control_prod(monkeypatch, tmp_path: Path):
+    client, _ = _build_embed_client(monkeypatch, tmp_path, app_env="prod")
+    response = client.get("/embed/v1/embed.js")
+    assert response.headers["cache-control"] == "public, max-age=300, must-revalidate"
+
+
+def test_embed_js_dev_rereads_on_change(monkeypatch, tmp_path: Path):
+    client, js_file = _build_embed_client(monkeypatch, tmp_path, app_env="dev")
+    first = client.get("/embed/v1/embed.js")
+    js_file.write_text("/* embed v2 */")
+    second = client.get("/embed/v1/embed.js")
+    assert first.text == "/* embed v1 */"
+    assert second.text == "/* embed v2 */"
+    assert first.headers["etag"] != second.headers["etag"]
+
+
+def test_embed_js_prod_caches_at_startup(monkeypatch, tmp_path: Path):
+    client, js_file = _build_embed_client(monkeypatch, tmp_path, app_env="prod")
+    first = client.get("/embed/v1/embed.js")
+    js_file.write_text("/* embed v2 */")
+    second = client.get("/embed/v1/embed.js")
+    assert first.text == "/* embed v1 */"
+    assert second.text == "/* embed v1 */"
+    assert first.headers["etag"] == second.headers["etag"]
+
+
+def test_embed_js_custom_path(monkeypatch, tmp_path: Path):
+    js_file = tmp_path / "custom.js"
+    js_file.write_text("/* custom content */")
+    client = build_client(
+        monkeypatch,
+        APP_ENV="dev",
+        API_KEY="test-key",
+        EMBED_JS_PATH=str(js_file),
+    )
+    response = client.get("/embed/v1/embed.js")
+    assert response.status_code == 200
+    assert response.text == "/* custom content */"
 
 
 def test_chat_openwebui_provider_returns_openwebui_model(monkeypatch):
