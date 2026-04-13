@@ -15,6 +15,11 @@ dependencies = [
 [project.scripts]
 manage-bots = "app.cli:main"
 
+[project.optional-dependencies]
+gpu-watchdog = [
+    "paramiko>=3.5.0",
+]
+
 [tool.uv]
 package = true
 
@@ -23,6 +28,5 @@ include = ["app*"]
 
 [dependency-groups]
 dev = [
-    "paramiko>=3.5.0",
     "pytest>=9.0.2",
 ]
