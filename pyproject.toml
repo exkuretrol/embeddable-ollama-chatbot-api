@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.28.1",
     "pydantic-settings>=2.13.0",
     "uvicorn[standard]>=0.40.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]
@@ -22,5 +23,6 @@ include = ["app*"]
 
 [dependency-groups]
 dev = [
+    "paramiko>=3.5.0",
     "pytest>=9.0.2",
 ]
