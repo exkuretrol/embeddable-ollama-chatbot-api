@@ -13,6 +13,7 @@ Config loaded from .env (or environment variables):
 """
 
 import logging
+import logging.handlers
 import os
 import sys
 import time
@@ -34,15 +35,23 @@ SCALE_DOWN_WAIT = int(os.environ.get("GPU_WATCHDOG_SCALE_DOWN_WAIT", "10"))
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_DIR / "gpu-watchdog.log"),
-        logging.StreamHandler(),
-    ],
+_LOG_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
+
+_file_handler = logging.handlers.TimedRotatingFileHandler(
+    LOG_DIR / "gpu-watchdog.log",
+    when="midnight",
+    backupCount=30,
+    utc=True,
 )
+_file_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+
 log = logging.getLogger("gpu-watchdog")
+log.setLevel(logging.INFO)
+log.addHandler(_file_handler)
+log.addHandler(_console_handler)
 
 
 def create_ssh_client() -> paramiko.SSHClient:
@@ -63,9 +72,13 @@ def create_ssh_client() -> paramiko.SSHClient:
 
 def ssh_run(client: paramiko.SSHClient, cmd: str) -> tuple[int, str, str]:
     """Run a command on the remote host. Returns (exit_code, stdout, stderr)."""
+    log.debug("ssh_run: %s", cmd)
     _, stdout, stderr = client.exec_command(cmd)
     exit_code = stdout.channel.recv_exit_status()
-    return exit_code, stdout.read().decode().strip(), stderr.read().decode().strip()
+    out, err = stdout.read().decode().strip(), stderr.read().decode().strip()
+    if exit_code != 0:
+        log.debug("ssh_run exit=%d stderr=%s", exit_code, err)
+    return exit_code, out, err
 
 
 def get_pod_name(client: paramiko.SSHClient) -> str | None:
@@ -110,7 +123,12 @@ def main() -> int:
         log.error("GPU_WATCHDOG_K8S_DEPLOYMENT is not set")
         return 1
 
-    client = create_ssh_client()
+    try:
+        client = create_ssh_client()
+    except Exception:
+        log.exception("SSH connection to %s failed", SSH_HOST)
+        return 1
+
     try:
         pod = get_pod_name(client)
         if not pod:
@@ -126,6 +144,9 @@ def main() -> int:
         log.warning("GPU check FAILED on pod=%s — restarting deployment", pod)
         restart_deployment(client)
         return 0
+    except Exception:
+        log.exception("Unexpected error during watchdog run")
+        return 1
     finally:
         client.close()
 
