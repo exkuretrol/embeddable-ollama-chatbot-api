@@ -30,6 +30,11 @@ SSH_HOST = os.environ.get("GPU_WATCHDOG_SSH_HOST", "")
 NAMESPACE = os.environ.get("GPU_WATCHDOG_K8S_NAMESPACE", "default")
 DEPLOYMENT = os.environ.get("GPU_WATCHDOG_K8S_DEPLOYMENT", "")
 SCALE_DOWN_WAIT = int(os.environ.get("GPU_WATCHDOG_SCALE_DOWN_WAIT", "10"))
+POD_READY_TIMEOUT = int(os.environ.get("GPU_WATCHDOG_POD_READY_TIMEOUT", "300"))
+POD_READY_POLL_INTERVAL = int(os.environ.get("GPU_WATCHDOG_POD_READY_POLL_INTERVAL", "5"))
+POST_RESTART_CMD = os.environ.get(
+    "GPU_WATCHDOG_POST_RESTART_CMD", "/home/shared/ollama/connect_models.sh"
+)
 
 # --- Logging ---
 LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
@@ -102,8 +107,40 @@ def check_gpu(client: paramiko.SSHClient, pod: str) -> bool:
     return exit_code == 0
 
 
+def wait_for_pod_ready(client: paramiko.SSHClient) -> bool:
+    """Poll until the deployment's pod reports condition Ready=True, or timeout."""
+    deadline = time.monotonic() + POD_READY_TIMEOUT
+    cmd = (
+        f"kubectl get pod -n {NAMESPACE} -l app={DEPLOYMENT} "
+        "-o jsonpath='{.items[0].status.conditions[?(@.type==\"Ready\")].status}'"
+    )
+    while time.monotonic() < deadline:
+        exit_code, stdout, _ = ssh_run(client, cmd)
+        if exit_code == 0 and stdout.strip().strip("'") == "True":
+            return True
+        time.sleep(POD_READY_POLL_INTERVAL)
+    return False
+
+
+def run_post_restart_cmd(client: paramiko.SSHClient) -> bool:
+    """Run the configured post-restart command on the SSH host."""
+    if not POST_RESTART_CMD:
+        log.info("No post-restart command configured; skipping")
+        return True
+
+    log.info("Running post-restart command: %s", POST_RESTART_CMD)
+    exit_code, stdout, stderr = ssh_run(client, POST_RESTART_CMD)
+    if exit_code == 0:
+        log.info("Post-restart command succeeded%s", f": {stdout}" if stdout else "")
+        return True
+    log.error(
+        "Post-restart command failed (exit=%d) stderr=%s", exit_code, stderr,
+    )
+    return False
+
+
 def restart_deployment(client: paramiko.SSHClient) -> None:
-    """Scale deployment to 0, wait, then scale back to 1."""
+    """Scale deployment to 0, wait, scale back to 1, then run post-restart command."""
     log.info("Scaling deployment to 0...")
     ssh_run(client, f"kubectl scale deployment/{DEPLOYMENT} -n {NAMESPACE} --replicas=0")
 
@@ -112,6 +149,17 @@ def restart_deployment(client: paramiko.SSHClient) -> None:
 
     log.info("Scaling deployment to 1...")
     ssh_run(client, f"kubectl scale deployment/{DEPLOYMENT} -n {NAMESPACE} --replicas=1")
+
+    log.info("Waiting for pod to become Ready (timeout=%ds)...", POD_READY_TIMEOUT)
+    if not wait_for_pod_ready(client):
+        log.error(
+            "Pod did not become Ready within %ds; skipping post-restart command",
+            POD_READY_TIMEOUT,
+        )
+        return
+
+    log.info("Pod is Ready")
+    run_post_restart_cmd(client)
     log.info("Deployment restarted successfully")
 
 
